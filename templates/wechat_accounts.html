@@ -1,0 +1,1140 @@
+<!-- templates/wechat_accounts.html -->
+{% extends "base.html" %}
+{% block content %}
+<h2>微信账号管理</h2>
+
+
+<!-- 操作按钮 -->
+<div class="mb-3">
+    <button type="button" class="btn btn-primary" onclick="showAddAccountModal()">新增</button>
+    <button type="button" class="btn btn-warning" onclick="showEditSelected()">编辑</button>
+    <button type="button" class="btn btn-warning" id="initializeBtn">初始</button>
+    <button type="button" class="btn btn-secondary" id="showQRCodeBtn">扫码</button>
+    <button type="button" class="btn btn-danger" id="reloginBtn">登录</button>
+    <button type="button" class="btn btn-success" id="testBtn">测试</button>
+    <button type="button" class="btn btn-info" id="updateBtnbasic">更新</button>
+    <button type="button" class="btn btn-success" id="startListenBtn">开启</button>
+    <button type="button" class="btn btn-info" id="updateBtn">更新群</button>
+</div>
+
+<!-- 表格 -->
+<div class="table-responsive">
+    <table class="table table-striped" id="accountsTable">
+        <thead class="bg-primary text-white">
+            <tr>
+                <th>选择</th>
+                <th class="sortable" data-sort="account_id">WXID<i class="fas fa-sort"></i></th>
+                <th class="sortable" data-sort="auth_account">账号<i class="fas fa-sort"></i></th>
+                <th class="sortable" data-sort="end_time">到期<i class="fas fa-sort"></i></th>
+                <th class="sortable" data-sort="nickname">昵称<i class="fas fa-sort"></i></th>
+                <th class="sortable" data-sort="city">城市<i class="fas fa-sort"></i></th>
+
+            </tr>
+        </thead>
+        <tbody>
+            {% for account in accounts %}
+            <tr data-province="{{ account.province }}" data-city="{{ account.city }}" data-callback-url="{{ account.callback_url }}">
+                <td>
+                    <input type="radio" name="selectedAccount" value="{{ account.account_id }}">
+                </td>
+                <td>{{ account.account_id }}</td>
+                <td>{{ account.auth_account }}</td>
+                <td class="end-time" data-date="{{ account.end_time }}">
+                    {{ account.end_time|date_format }}
+                </td>
+                <td>{{ account.nickname }}</td>
+                <td>{{ account.city }}</td>
+
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 二维码弹窗 -->
+<div class="modal" id="qrCodeModal" tabindex="-1" role="dialog" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrCodeModalLabel">扫码登录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <img id="qrCodeImage" src="" alt="二维码" style="width:100%;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="confirmScan()">已扫码完成</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 提示消息弹窗 -->
+<div class="modal" id="messageModal" tabindex="-1" role="dialog" aria-labelledby="messageModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalLabel">提示</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="messageContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="$('#messageModal').modal('hide');">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增账号模态框 -->
+<div class="modal fade" id="addAccountModal" tabindex="-1" aria-labelledby="addAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAccountModalLabel">新增账号</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAccountForm">
+                    <div class="mb-3">
+                        <label for="auth_account" class="form-label">账号(手机号)</label>
+                        <input type="text" class="form-control" id="auth_account" name="auth_account" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="auth_password" class="form-label">密码(获取的加密后的密码)</label>
+                        <input type="text" class="form-control" id="auth_password" name="auth_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="province" class="form-label">省份(用于扫码登录，直辖市写这里)</label>
+                        <input type="text" class="form-control" id="province" name="province">
+                    </div>
+                    <div class="mb-3">
+                        <label for="city" class="form-label">城市(直辖市保持空)</label>
+                        <input type="text" class="form-control" id="city" name="city">
+                    </div>
+                    <div class="mb-3">
+                        <label for="callback_url" class="form-label">回调地址(详见接口文档)</label>
+                        <input type="text" class="form-control" id="callback_url" name="callback_url">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addAccount()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Account Modal -->
+<div class="modal fade" id="updateAccountModal" tabindex="-1" aria-labelledby="updateAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateAccountModalLabel">更新账号</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="updateAccountForm">
+                    <input type="hidden" id="update_account_id" name="account_id">
+                    
+                    <div class="mb-3">
+                        <label for="update_auth_account" class="form-label">认证账号</label>
+                        <input type="text" class="form-control" id="update_auth_account" name="auth_account">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="update_auth_password" class="form-label">认证密码</label>
+                        <input type="password" class="form-control" id="update_auth_password" name="auth_password">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="update_token" class="form-label">Token</label>
+                        <input type="text" class="form-control" id="update_token" name="token">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="update_auth" class="form-label">Auth</label>
+                        <input type="text" class="form-control" id="update_auth" name="auth">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="update_province" class="form-label">省份</label>
+                        <input type="text" class="form-control" id="update_province" name="province">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="update_city" class="form-label">城市</label>
+                        <input type="text" class="form-control" id="update_city" name="city">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="update_callback_url" class="form-label">回调地址</label>
+                        <input type="text" class="form-control" id="update_callback_url" name="callback_url">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-info" onclick="copyUpdateConfig()">复制配置</button>
+                <button type="button" class="btn btn-primary" onclick="updateAccount()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editAccountModal" tabindex="-1" role="dialog" aria-labelledby="editAccountModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="editAccountModalLabel">编辑账号</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editAccountForm">
+                    <input type="hidden" id="edit_id" name="id">
+                    
+                    <div class="form-group">
+                        <label for="edit_account_id">账号ID</label>
+                        <input type="text" class="form-control" id="edit_account_id" name="account_id" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_auth_account">认证账号</label>
+                        <input type="text" class="form-control" id="edit_auth_account" name="auth_account">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_auth_password">认证密码</label>
+                        <input type="password" class="form-control" id="edit_auth_password" name="auth_password">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_token">Token</label>
+                        <input type="text" class="form-control" id="edit_token" name="token">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_auth">Auth</label>
+                        <input type="text" class="form-control" id="edit_auth" name="auth">
+                    </div>
+
+                    <!-- ... other existing fields ... -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="saveAccountChanges()">保存</button>
+                <button type="button" class="btn btn-info" onclick="copyConfig()">复制配置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const getCellValue = (tr, idx) => tr.children[idx].innerText || tr.children[idx].textContent;
+    
+    const comparer = (idx, asc) => (a, b) => {
+        const v1 = getCellValue(asc ? a : b, idx);
+        const v2 = getCellValue(asc ? b : a, idx);
+        return v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2) 
+            ? v1 - v2 
+            : v1.toString().localeCompare(v2);
+    };
+
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', (() => {
+            const table = th.closest('table');
+            const tbody = table.querySelector('tbody');
+            Array.from(tbody.querySelectorAll('tr'))
+                .sort(comparer(Array.from(th.parentNode.children).indexOf(th), this.asc = !this.asc))
+                .forEach(tr => tbody.appendChild(tr));
+        }));
+    });
+
+    const endTimeCells = document.querySelectorAll('td.end-time');
+    endTimeCells.forEach(cell => {
+        const date = new Date(cell.dataset.date);
+        const now = new Date();
+        const oneWeek = new Date();
+        oneWeek.setDate(oneWeek.getDate() + 7);
+
+        if (date < now) {
+            cell.style.backgroundColor = '#ffd700'; // 过期显示黄色
+            cell.style.color = '#000';
+        } else if (date <= oneWeek) {
+            cell.style.backgroundColor = '#ffa500'; // 一周内显示橙色
+            cell.style.color = '#000';
+        }
+    });
+});
+
+// 操作按钮事件
+document.getElementById('startListenBtn').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        startlisten(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+// 操作按钮事件
+document.getElementById('updateBtn').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        updateRobotInfo(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+document.getElementById('updateBtnbasic').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        updateRobotbasic(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+document.getElementById('initializeBtn').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        initialize_user(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+
+document.getElementById('reloginBtn').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        relogin(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+document.getElementById('showQRCodeBtn').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        showQRCodeModal(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+document.getElementById('testBtn').addEventListener('click', function() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (selectedAccount) {
+        testHeartbeat(selectedAccount.value);
+    } else {
+        alert('请至少选择一个账号');
+    }
+});
+function showQRCodeModal(accountId) {
+    fetch(`/get_qrcode/${accountId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            // 获取二维码失败
+            Swal.fire({
+                title: '获取二维码失败',
+                text: data.error,
+                icon: 'error',
+                confirmButtonText: '确认'
+            });
+        } else if (data.success) {
+            // 微信已在线
+            Swal.fire({
+                title: '微信登录',
+                text: data.success,
+                icon: 'success',
+                confirmButtonText: '确认'
+            });
+        } else if (!data.qrcode_data) {
+            // 没有获取到二维码数据
+            Swal.fire({
+                title: '获取二维码失败',
+                text: data.msg,
+                icon: 'error',
+                confirmButtonText: '确认'
+            });
+        } else {
+            // 成功获取二维码，根据token类型选择不同的登录方式
+            if (data.is_wx_token) {
+                showAutoCheckQRCode(accountId, data.qrcode_data);
+            } else {
+                showManualCheckQRCode(accountId, data.qrcode_data);
+            }
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        Swal.fire({
+            title: '错误',
+            text: '获取二维码失败，请检查网络连接',
+            icon: 'error',
+            confirmButtonText: '确认'
+        });
+    });
+}
+
+function confirmScan() {
+    $('#qrCodeModal').modal('hide');
+    location.reload();
+}
+
+function testHeartbeat(accountId) {
+    fetch(`/test_heartbeat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        const messageModal = $('#messageModal');
+        const messageContent = document.getElementById('messageContent');
+
+        if (data.status_code === 200) {
+            messageContent.textContent = "发送成功";
+        } else {
+            messageContent.textContent = "微信掉线，请扫码";
+
+        }
+
+        messageModal.modal('show');
+    });
+}
+
+function initialize_user(accountId) {
+    fetch(`/initialize_user`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        const messageModal = $('#messageModal');
+        const messageContent = document.getElementById('messageContent');
+
+        if (data.status_code === 200) {
+            messageContent.textContent = data.message;
+        } else {
+            messageContent.textContent = data.message;
+
+        }
+
+        messageModal.modal('show');
+    });
+}
+function relogin(accountId) {
+    Swal.fire({
+        title: '弹框登录提示',
+        text: '操作前，请先准备好微信机器人的手机，然后点击【弹框登录】，手机如果弹框，则再手机上点击确认，这样就操作完成。',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '弹框登录',
+        cancelButtonText: '取消'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // 原来的登录逻辑
+            fetch(`/relogin`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ account_id: accountId }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                const messageModal = $('#messageModal');
+                const messageContent = document.getElementById('messageContent');
+
+                if (data.status_code === 200) {
+                    messageContent.textContent = data.message;
+                } else {
+                    messageContent.textContent = data.message;
+                }
+
+                messageModal.modal('show');
+            });
+        }
+    });
+}
+function startlisten(accountId) {
+    fetch(`/startlisten`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        const messageModal = $('#messageModal');
+        const messageContent = document.getElementById('messageContent');
+
+        if (data.status_code === 200) {
+            messageContent.textContent = data.message;
+        } else {
+            messageContent.textContent = data.message;
+
+        }
+
+        messageModal.modal('show');
+    });
+}
+function updateRobotInfo(accountId) {
+
+    fetch('/update_robot_info', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({  account_id: accountId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            // 可以选择刷新页面或更新特定字段
+            location.reload();
+        } else {
+            alert('更新失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('更新过程中发生错误，请查看控制台了解详情。');
+    });
+}
+function updateRobotbasic(accountId) {
+
+    fetch('/update_robot_basic', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({  account_id: accountId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            // 可以选择刷新页面或更新特定字段
+            location.reload();
+        } else {
+            alert('更新失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('更新过程中发生错误，请查看控制台了解详情。');
+    });
+}
+
+function showAddAccountModal() {
+    $('#addAccountModal').modal('show');
+}
+
+function addAccount() {
+    const form = document.getElementById('addAccountForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    fetch('/add_wechat_account', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.status === 'success') {
+            Swal.fire({
+                title: '成功',
+                text: '账号添加成功！',
+                icon: 'success',
+                confirmButtonText: '确定'
+            }).then(() => {
+                $('#addAccountModal').modal('hide');
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                title: '错误',
+                text: '添加失败：' + result.message,
+                icon: 'error',
+                confirmButtonText: '确定'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: '错误',
+            text: '添加过程中发生错误请查看控制台了解详情。',
+            icon: 'error',
+            confirmButtonText: '确定'
+        });
+    });
+}
+
+function showAutoCheckQRCode(accountId, qrCodeData) {
+    if (!qrCodeData) {
+        Swal.fire({
+            title: '错误',
+            text: '二维码数据无效',
+            icon: 'error',
+            confirmButtonText: '确认'
+        });
+        return;
+    }
+
+    let checkInterval;
+    
+    Swal.fire({
+        title: '请扫码登录',
+        html: `
+            <div class="text-center">
+                <img src="${qrCodeData}"
+                     style="width:200px; height:200px;"
+                     onerror="this.onerror=null; this.src=''; document.getElementById('qrError').style.display='block';">
+                <div id="qrError" style="display:none; color:red; margin-top:10px;">
+                    二维码加载失败，请刷新重试
+                </div>
+                <div id="qrStatus" class="mt-3">等待扫码...</div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '取消',
+        allowOutsideClick: false,
+        didOpen: () => {
+            // 开始定时检查扫码状态
+            checkInterval = setInterval(() => {
+                fetch('/check_qr_status_beta', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ account_id: accountId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('qrStatus');
+                    if (data.status === -1) {
+                        clearInterval(checkInterval);
+                        Swal.close();
+                        Swal.fire({
+                            title: '会话已失效',
+                            text: '请重新获取二维码',
+                            icon: 'warning',
+                            confirmButtonText: '确认'
+                        });
+                    } else if (data.status === 1) {
+                        statusElement.textContent = '二维码已扫描，请在手机上确认登录';
+                        statusElement.style.color = '#28a745';
+                    } else if (data.status === 2) {
+                        clearInterval(checkInterval);
+                        Swal.close();
+                        handleLoginSuccess(data);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error checking QR status:", error);
+                    clearInterval(checkInterval);
+                    Swal.close();
+                    Swal.fire({
+                        title: '错误',
+                        text: '检查扫码状态失败',
+                        icon: 'error',
+                        confirmButtonText: '确认'
+                    });
+                });
+            }, 6000); // 每6秒检查一次
+        },
+        willClose: () => {
+            clearInterval(checkInterval);
+            // 清理登录会话
+            clearLoginSession(accountId);
+        }
+    });
+}
+
+function showManualCheckQRCode(accountId, qrCodeUrl) {
+    Swal.fire({
+        title: '请扫码登录',
+        text: '请使用手机微信扫描二维码，手机选择【iPad】设备登录，然后点击本页确认按钮',
+        imageUrl: qrCodeUrl,
+        imageWidth: 200,
+        imageHeight: 200,
+        showCancelButton: true,
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        allowOutsideClick: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            handleManualLogin(accountId);
+        }
+    });
+}
+
+function checkQRStatus(accountId) {
+    const endpoint = window.isWxToken ? '/check_qr_status_beta' : '/check_qr_status_original';
+    
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 1) {
+            Swal.update({
+                text: '二维码已被扫描，请在手机上确认登录'
+            });
+        } else if (data.status === 2) {
+            Swal.close();
+            Swal.fire({
+                title: '登录成功',
+                text: `欢迎回来，${data.nickname}`,
+                icon: 'success',
+                confirmButtonText: '确认'
+            }).then(() => {
+                location.reload();
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Error checking QR status:", error);
+    });
+}
+
+function handleManualLogin(accountId) {
+    fetch('/confirm_login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status_code === 200) {
+            Swal.fire({
+                title: '登录成功',
+                text: data.message,
+                icon: 'success',
+                confirmButtonText: '确认'
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                title: '登录失败',
+                text: data.message || '未知错误',
+                icon: 'error',
+                confirmButtonText: '确认'
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        Swal.fire({
+            title: '错误',
+            text: '登录处理失败',
+            icon: 'error',
+            confirmButtonText: '确认'
+        });
+    });
+}
+
+function handleLoginSuccess(data) {
+    Swal.fire({
+        title: '登录成功',
+        text: `欢迎回来，${data.nickname || ''}`,
+        icon: 'success',
+        confirmButtonText: '确认'
+    }).then(() => {
+        // 登录成功后的操作
+        fetch('/initialize_user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ account_id: accountId })
+        })
+        .then(response => response.json())
+        .then(initData => {
+            if (initData.status_code === 200) {
+                // 初始化成功，刷新页面
+                location.reload();
+            } else {
+                Swal.fire({
+                    title: '初始化失败',
+                    text: initData.message || '账号初始化失败',
+                    icon: 'warning',
+                    confirmButtonText: '确认'
+                });
+            }
+        })
+        .catch(error => {
+            console.error("Error initializing user:", error);
+            Swal.fire({
+                title: '错误',
+                text: '账号初始化失败',
+                icon: 'error',
+                confirmButtonText: '确认'
+            });
+        });
+    });
+}
+
+function clearLoginSession(accountId) {
+    fetch('/clear_login_session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId })
+    }).catch(error => {
+        console.error("Error clearing login session:", error);
+    });
+}
+
+function showEditSelected() {
+    const selectedAccount = document.querySelector('input[name="selectedAccount"]:checked');
+    if (!selectedAccount) {
+        Swal.fire({
+            title: '提示',
+            text: '请先选择要编辑的账号',
+            icon: 'warning',
+            confirmButtonText: '确定'
+        });
+        return;
+    }
+
+    // 获取选中行的数据
+    const row = selectedAccount.closest('tr');
+    const accountId = selectedAccount.value;
+    
+    // 添加 account_id 作为查询参数
+    fetch(`/update_wechat_account?account_id=${accountId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('update_account_id').value = accountId;
+        document.getElementById('update_auth_account').value = data.auth_account;
+        document.getElementById('update_auth_password').value = data.auth_password;
+        document.getElementById('update_token').value = data.token;
+        document.getElementById('update_auth').value = data.auth;
+        document.getElementById('update_province').value = row.getAttribute('data-province') || '';
+        document.getElementById('update_city').value = row.getAttribute('data-city') || '';
+        document.getElementById('update_callback_url').value = row.getAttribute('data-callback-url') || '';
+        
+        // 显示模态框
+        $('#updateAccountModal').modal('show');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: '错误',
+            text: '获取账号信息失败',
+            icon: 'error',
+            confirmButtonText: '确定'
+        });
+    });
+}
+
+function updateAccount() {
+    const form = document.getElementById('updateAccountForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    fetch('/update_wechat_account', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.status === 'success') {
+            Swal.fire({
+                title: '成功',
+                text: '账号更新成功，请重新开启群监听！',
+                icon: 'success',
+                confirmButtonText: '确定'
+            }).then(() => {
+                $('#updateAccountModal').modal('hide');
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                title: '错误',
+                text: '更新失败：' + result.message,
+                icon: 'error',
+                confirmButtonText: '确定'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: '错误',
+            text: '更新过程中发生错误，请查看控制台了解详情。',
+            icon: 'error',
+            confirmButtonText: '确定'
+        });
+    });
+}
+
+function copyConfig() {
+    const account = {
+        base_url: "http://139.196.53.174:52001/api",
+        auth_account: document.getElementById('edit_auth_account').value,
+        auth_password: document.getElementById('edit_auth_password').value,
+        token: document.getElementById('edit_token').value,
+        auth: document.getElementById('edit_auth').value,
+        http_hook: "http:/xx.xxxx.xxx:xxxx/chat"
+    };
+
+    const configText = JSON.stringify(account, null, 4);
+    
+    // Create temporary textarea to copy text
+    const textarea = document.createElement('textarea');
+    textarea.value = configText;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    // Show success message
+    alert('配置已复制到剪贴板');
+}
+
+function editAccount(id) {
+    fetch(`/api/account/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('edit_id').value = data.id;
+            document.getElementById('edit_account_id').value = data.account_id;
+            document.getElementById('edit_auth_account').value = data.auth_account;
+            document.getElementById('edit_auth_password').value = data.auth_password;
+            document.getElementById('edit_token').value = data.token;
+            document.getElementById('edit_auth').value = data.auth;
+            // ... set other fields ...
+            
+            $('#editAccountModal').modal('show');
+        });
+}
+
+function saveAccountChanges() {
+    const formData = new FormData(document.getElementById('editAccountForm'));
+    const data = Object.fromEntries(formData);
+    
+    fetch('/api/account/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('保存成功');
+            $('#editAccountModal').modal('hide');
+            // Refresh account list
+            location.reload();
+        } else {
+            alert('保存失败: ' + result.message);
+        }
+    });
+}
+
+// 修改 copyTextToClipboard 函数
+async function copyTextToClipboard(button) {
+    const textarea = button.parentElement.querySelector('.config-text');
+    const text = textarea.value;
+    
+    try {
+        // 尝试使用现代的 Clipboard API
+        await navigator.clipboard.writeText(text);
+        button.textContent = '已复制！';
+        setTimeout(() => {
+            button.textContent = '复制到剪贴板';
+        }, 2000);
+    } catch (err1) {
+        try {
+            // 如果 Clipboard API 失败，尝试传统方法
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // 对于移动设备
+            const successful = document.execCommand('copy');
+            
+            if (successful) {
+                button.textContent = '已复制！';
+                setTimeout(() => {
+                    button.textContent = '复制到剪贴板';
+                }, 2000);
+            } else {
+                throw new Error('复制失败');
+            }
+        } catch (err2) {
+            // 如果都失败了，提示用户手动复制
+            Swal.fire({
+                title: '无法自动复制',
+                text: '请手动选择文本并复制（Ctrl+C 或 Command+C）',
+                icon: 'warning',
+                confirmButtonText: '确定'
+            });
+        }
+    }
+}
+
+// 修改 copyUpdateConfig 函数
+function copyUpdateConfig() {
+    // 先从更新模态框中获取值
+    const config = {
+        base_url: "http://139.196.53.174:52001/api",
+        auth_account: document.getElementById('update_auth_account').value,
+        auth_password: document.getElementById('update_auth_password').value,
+        token: document.getElementById('update_token').value,
+        auth: document.getElementById('update_auth').value,
+        http_hook: "http:/xx.xxxx.xxx:xxxx/chat"
+    };
+
+    const configText = JSON.stringify(config, null, 4);
+    
+    // 直接尝试复制到剪贴板
+    navigator.clipboard.writeText(configText).then(() => {
+        // 复制成功后显示成功消息
+        Swal.fire({
+            title: '成功',
+            text: '配置已复制到剪贴板',
+            icon: 'success',
+            confirmButtonText: '确定'
+        });
+    }).catch(() => {
+        // 如果直接复制失败，显示配置并让用户手动复制
+        Swal.fire({
+            title: '配置信息',
+            html: `
+                <div class="config-container">
+                    <textarea class="config-text" readonly>${configText}</textarea>
+                </div>
+            `,
+            confirmButtonText: '关闭',
+            showCloseButton: true,
+            customClass: {
+                popup: 'swal-wide'
+            },
+            didOpen: () => {
+                const textarea = document.querySelector('.config-text');
+                textarea.select();
+            }
+        });
+    });
+
+    // 关闭更新模态框
+    $('#updateAccountModal').modal('hide');
+}
+
+</script>
+
+<!-- 在 head 部分添加 Font Awesome CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+<!-- 添加样式 -->
+<style>
+.sortable {
+    cursor: pointer;
+    position: relative;
+}
+
+.sortable:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.bg-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe) !important;
+}
+
+.table thead th {
+    padding: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e3e6f0;
+}
+
+.fas {
+    margin-left: 5px;
+    font-size: 0.8em;
+}
+
+.swal-wide {
+    width: 80% !important;
+    max-width: 800px;
+}
+.text-left {
+    text-align: left;
+}
+pre code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.config-container {
+    margin: 20px 0;
+}
+
+.config-text {
+    width: 100%;
+    min-height: 200px;
+    padding: 10px;
+    font-family: monospace;
+    white-space: pre;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    resize: vertical;
+    cursor: text;  /* 添加文本选择光标 */
+    user-select: all;  /* 使整个文本容易选择 */
+}
+
+.config-text:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.ms-2 {
+    margin-left: 0.5rem !important;
+}
+
+.swal2-popup {
+    font-size: 0.9rem !important;
+}
+</style>
+{% endblock %}

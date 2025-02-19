@@ -1,0 +1,28 @@
+{
+    "单独进群提示": {
+        "value": [
+            "欢迎{nickname}加入群聊，请查看群公告，开通试用请找群主。",
+            "欢迎{nickname}加入群聊"
+        ],
+        "description": "单独设置每个群的欢迎语。"
+    },
+    "群名称": {
+        "value": [
+            "Chatgpt-on-iPad",
+            "个人群"
+        ],
+        "description": "群名称，和欢迎语一一对应。"
+    },
+    "通用提示": {
+        "value": "欢迎{nickname}加入群聊，请自我介绍。",
+        "description": "进群欢迎群聊。"
+    },
+    "退群提示": {
+        "value": "{nickname}退出了群聊。",
+        "description": "退出群聊。"
+    },
+    "拍一拍": {
+        "value": "拍我就可以得到帮助，输入>+文字和我对话",
+        "description": "拍一拍回复内容"
+    }
+}

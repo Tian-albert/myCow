@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block head %}
+<!-- 添加 JSON Editor 依赖 -->
+
+<style>
+    /* 自定义样式 */
+    /* 设置页面布局 */
+    .settings-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 100px); /* 减去顶部导航等空间 */
+        padding: 20px;
+    }
+    
+    /* 设置表单布局 */
+    #settingsForm {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0; /* 重要：允许内容收缩 */
+    }
+    
+    /* 插件选择区域 */
+    .plugin-select-area {
+        margin-bottom: 20px;
+    }
+    
+    /* 配置字段容器 */
+    #pluginConfigFields {
+        flex: 1;
+        min-height: 0; /* 重要：允许内容收缩 */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .jsoneditor {
+        flex: 1; /* 占用所有可用空间 */
+        width: 100%;
+        min-height: 500px; /* 最小高度 */
+    }
+    
+    .jsoneditor-mode-code {
+        height: 100%;
+    }
+    
+    #jsoneditor {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 20px;
+        width: 100%;
+        min-height: 500px;
+    }
+    
+    /* 调整编辑器内部样式 */
+    .ace_editor {
+        height: 100% !important;
+        flex: 1;
+    }
+    
+    /* 保存按钮区域 */
+    .button-area {
+        margin-top: 20px;
+        padding: 10px 0;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="settings-container">
+    <h2>设置</h2>
+    <form id="settingsForm">
+        <div class="plugin-select-area d-flex align-items-center">
+            <label for="pluginSelect" class="form-label me-2 mb-0">选择插件</label>
+            <select id="pluginSelect" class="form-select" onchange="loadPluginConfig()" style="width: auto; max-width: 200px;">
+                <option value="">选择插件</option>
+                {% for plugin_name, plugin_info in plugins.items() %}
+                <option value="{{ plugin_name }}">{{ plugin_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="pluginConfigFields"></div>
+        <div id="configFields">
+            <!-- 原有的配置字段 -->
+        </div>
+        <div class="button-area">
+            <button type="submit" class="btn btn-primary">保存设置</button>
+        </div>
+    </form>
+</div>
+
+<div id="messageArea" style="display:none;" class="mt-3" class="alert"></div>
+
+<script>
+let jsonEditor = null;
+
+// 检查 JSONEditor 是否成功加载
+function checkJSONEditorLoaded() {
+    if (typeof JSONEditor === 'undefined') {
+        console.error('JSONEditor library not loaded!');
+        showMessage('JSON编辑器加载失败，请刷新页面重试', 'error');
+        return false;
+    }
+    return true;
+}
+
+function showMessage(message, type = 'error') {
+    const messageArea = document.getElementById('messageArea');
+    messageArea.innerHTML = message;
+    messageArea.style.display = 'block';
+    messageArea.className = `alert alert-${type === 'error' ? 'danger' : 'success'} mt-3`;
+    setTimeout(() => {
+        messageArea.style.display = 'none';
+    }, 5000);
+}
+
+function showLoading(show = true) {
+    const button = document.querySelector('button[type="submit"]');
+    if (show) {
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 加载中...';
+    } else {
+        button.disabled = false;
+        button.innerHTML = '保存设置';
+    }
+}
+
+function loadPluginConfig() {
+    const pluginName = document.getElementById('pluginSelect').value;
+    const pluginConfigFields = document.getElementById('pluginConfigFields');
+
+    showLoading(true);
+    console.log('Loading config for plugin:', pluginName);
+
+    if (!pluginName) {
+        pluginConfigFields.innerHTML = '';
+        showLoading(false);
+        return;
+    }
+
+    fetch(`/get_plugin_config/${pluginName}`)
+        .then(response => response.json())
+        .then(config => {
+            console.log('Received config:', config);
+            console.log('Config type:', config.config_type);
+            if (config.config_type === "json") {
+                console.log('Handling complex JSON config');
+                // 检查 JSONEditor 是否加载
+                if (!checkJSONEditorLoaded()) {
+                    return;
+                }
+                
+                // 处理复杂 JSON 配置
+                pluginConfigFields.innerHTML = `
+                    <h3>${pluginName} 插件设置</h3>
+                    <div id="jsoneditor"></div>
+                `;
+                
+                try {
+                    // 销毁现有的编辑器实例
+                    if (jsonEditor) {
+                        console.log('Destroying existing editor');
+                        jsonEditor.destroy();
+                    }
+                    
+                    // 创建新的 JSON 编辑器
+                    const container = document.getElementById('jsoneditor');
+                    console.log('Creating new JSON editor');
+                    const options = {
+                        mode: 'code',
+                        modes: ['code', 'tree'],
+                        onError: function(err) {
+                            console.error('JSONEditor error:', err);
+                            showMessage(err.toString(), 'error');
+                        },
+                        onModeChange: function(newMode, oldMode) {
+                            console.log('Mode switched from', oldMode, 'to', newMode);
+                        }
+                    };
+                    jsonEditor = new JSONEditor(container, options);
+                    
+                    // 设置初始值
+                    console.log('Setting initial JSON value:', config.value);
+                    const jsonValue = JSON.parse(config.value);
+                    jsonEditor.set(jsonValue);
+                } catch (e) {
+                    console.error('Error initializing JSON editor:', e);
+                    showMessage('初始化JSON编辑器失败：' + e.message, 'error');
+                }
+            } else {
+                console.log('Handling simple config');
+                // 处理普通配置
+                jsonEditor = null;
+                let html = '<h3>' + pluginName + ' 插件设置</h3>';
+                Object.entries(config).forEach(([key, value]) => {
+                    console.log('Processing field:', key, value);
+                    html += `
+                    <div class="mb-3">
+                        <label for="${pluginName}_${key}" class="form-label">
+                            <strong style="color: #3498db;">${value.description || key}</strong>
+                            <strong style="color: #3498db;">(${key})</strong>
+                        </label>
+                        ${renderInputField(pluginName, key, value)}
+                    </div>
+                    `;
+                });
+                pluginConfigFields.innerHTML = html;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading plugin config:', error);
+            showMessage('加载配置失败：' + error.message, 'error');
+        })
+        .finally(() => {
+            showLoading(false);
+        });
+}
+
+function renderInputField(pluginName, key, value) {
+    if (Array.isArray(value.value)) {
+        // 创建一个容器div来包含所有输入字段
+        let html = `<div class="array-inputs" id="${pluginName}_${key}_container">`;
+        // 保持数组顺序显示
+        value.value.forEach((item, index) => {
+            html += `
+                <div class="input-group mb-2">
+                    <input type="text" class="form-control" 
+                           name="${pluginName}_${key}" 
+                           value="${item}" 
+                           data-array-key="${key}">
+                    <button type="button" class="btn btn-danger" 
+                            onclick="removeInputField(this)">删除</button>
+                </div>`;
+        });
+        html += `<button type="button" class="btn btn-secondary" 
+                        onclick="addInputField('${pluginName}', '${key}')">添加条目</button>`;
+        html += '</div>';
+        return html;
+    } else if (typeof value.value === 'boolean') {
+        return `<select class="form-control" id="${pluginName}_${key}" name="${pluginName}_${key}">
+            <option value="true" ${value.value ? 'selected' : ''}>是</option>
+            <option value="false" ${value.value ? '' : 'selected'}>否</option>
+        </select>`;
+    } else {
+        return `<input type="text" class="form-control" 
+                       id="${pluginName}_${key}" 
+                       name="${pluginName}_${key}" 
+                       value="${value.value}">`;
+    }
+}
+
+function addInputField(pluginName, key) {
+    const container = document.getElementById(`${pluginName}_${key}_container`);
+    const newInput = document.createElement('div');
+    newInput.className = 'input-group mb-2';
+    newInput.innerHTML = `
+        <input type="text" class="form-control" 
+               name="${pluginName}_${key}" 
+               value="" 
+               data-array-key="${key}">
+        <button type="button" class="btn btn-danger" 
+                onclick="removeInputField(this)">删除</button>
+    `;
+    // 在"添加条目"按钮之前插入新的输入框
+    container.insertBefore(newInput, container.lastElementChild);
+}
+
+function removeInputField(button) {
+    button.parentElement.remove();
+}
+
+// 修改表单提交处理
+document.getElementById('settingsForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    const pluginName = document.getElementById('pluginSelect').value;
+    let data = {
+        plugin_name: pluginName,
+        config: {}
+    };
+
+    if (jsonEditor) {
+        // 处理 JSON 编辑器的内容
+        try {
+            const jsonValue = jsonEditor.get();
+            data.config = {
+                config_type: "json",
+                value: JSON.stringify(jsonValue, null, 2)
+            };
+        } catch (e) {
+            alert('JSON 格式错误，请检查');
+            return;
+        }
+    } else {
+        // 处理普通表单字段
+        const configFields = document.querySelectorAll('#pluginConfigFields input, #pluginConfigFields select');
+        const arrayValues = {};
+
+        configFields.forEach(field => {
+            const arrayKey = field.dataset.arrayKey;
+            if (arrayKey) {
+                if (!arrayValues[arrayKey]) {
+                    arrayValues[arrayKey] = [];
+                }
+                if (field.value.trim() !== '') {
+                    arrayValues[arrayKey].push(field.value);
+                }
+            } else {
+                const key = field.name.replace(`${pluginName}_`, '');
+                data.config[key] = {
+                    "value": field.value
+                };
+            }
+        });
+
+        Object.entries(arrayValues).forEach(([key, values]) => {
+            data.config[key] = {
+                "value": values
+            };
+        });
+    }
+
+    // 发送配置到服务器
+    fetch('/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.status === 'success') {
+            alert('保存成功！');
+        } else {
+            alert('保存失败！');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('保存失败！');
+    });
+});
+</script>
+{% endblock %}
