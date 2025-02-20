@@ -5,11 +5,31 @@ from datetime import datetime
 from common.log import logger
 
 
+# dao.py
+
+from model import *
+import sqlite3
+import os
+from datetime import datetime
+from common.log import logger
+
 class DBManager:
+    _instance = None  # 用于保存单例实例
+
+    def __new__(cls, db_path=None):
+        if cls._instance is None:
+            cls._instance = super(DBManager, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, db_path=None):
         """
         :param db_path: 数据库文件路径；可传入绝对或相对路径
         """
+        # 如果已有实例初始化过，就不重复执行 init_database()
+        # 因为 Python __init__ 在单例模式下会被多次调用
+        if hasattr(self, "_inited") and self._inited:
+            return
+
         # 如果不传db_path，就使用默认路径
         if db_path is None:
             cur_dir = os.path.dirname(__file__)
@@ -18,10 +38,12 @@ class DBManager:
         self.db_path = db_path
         logger.info(f"[DBManager] 使用的数据库文件: {self.db_path}")
 
-        # 在这里初始化数据库表
+        # 初始化数据库表
         self.init_database()
-
         self.conn = None
+
+        # 标记已经初始化过
+        self._inited = True
 
     def init_database(self):
         """初始化数据库表结构"""
@@ -65,12 +87,11 @@ class DBManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS exercise_record (
                     exercise_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                    exercise_name         TEXT NOT NULL,
-                    exercise_time   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    user_id INTEGER NOT NULL,
-                    burned_calories REAL NOT NULL -- 运动总消耗
+                    exercise_name     TEXT NOT NULL,
+                    exercise_time     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    user_id           INTEGER NOT NULL,
+                    burned_calories   REAL NOT NULL -- 运动总消耗
                 );
-
             ''')
 
             # 检查新增列是否存在
@@ -79,7 +100,7 @@ class DBManager:
             if 'age' not in columns:
                 cursor.execute('ALTER TABLE user ADD COLUMN age INTEGER DEFAULT 22')
             if 'activity_level' not in columns:
-                cursor.execute('ALTER TABLE user ADD COLUMN activity_level TEXT DEFAULT "轻度运动"')
+                cursor.execute('ALTER TABLE user ADD COLUMN activity_level TEXT DEFAULT "轻度活动"')
 
             conn.commit()
             conn.close()
@@ -89,8 +110,8 @@ class DBManager:
             raise e
 
     def get_conn(self):
-        conn = sqlite3.connect(self.db_path)
-        return conn
+        return sqlite3.connect(self.db_path)
+
 
 
 
@@ -100,7 +121,7 @@ class UserDAO:
 
     def create_user(self, wx_id: str, nickname: str = None, gender: int = 0,
                     height: float = None, weight: float = None, age: int = 22,
-                    activity_level: str = '久坐不动') -> int:
+                    activity_level: str = '轻度活动') -> int:
         """
         在user表插入新记录，并返回新用户的user_id
         """
@@ -228,7 +249,7 @@ class ExerciseDAO:
         cur = conn.cursor()
 
         sql = """
-            SELECT exercise_id, exercise_name, user_id, burned_calories, exercise_time
+            SELECT exercise_id, exercise_name, exercise_time, user_id, burned_calories
             FROM exercise_record
             WHERE exercise_id = ?
         """
@@ -238,20 +259,31 @@ class ExerciseDAO:
 
         return ExerciseRecord.from_row(row) if row else None
 
-    def list_exercises_by_user(self, user_id: int) -> list:
+    def list_exercises_by_user(self, user_id: int, date_str: str = None) -> list:
         """
         查询某个用户的所有运动记录, 返回ExerciseRecord对象列表
         """
         conn = self.db_manager.get_conn()
         cur = conn.cursor()
 
-        sql = """
-            SELECT exercise_id, exercise_name, user_id, burned_calories, exercise_time
+        # select的顺序要与model打印的顺序一致！！
+        if date_str:
+            sql = """
+            SELECT exercise_id, exercise_name, exercise_time, user_id, burned_calories
             FROM exercise_record
             WHERE user_id = ?
+                AND DATE(exercise_time) = DATE(?)
             ORDER BY exercise_time DESC
-        """
-        cur.execute(sql, (user_id,))
+            """
+            cur.execute(sql, (user_id, date_str))
+        else:
+            sql = """
+                SELECT exercise_id, exercise_name, exercise_time, user_id, burned_calories
+                FROM exercise_record
+                WHERE user_id = ?
+                ORDER BY exercise_time DESC
+            """
+            cur.execute(sql, (user_id,))
         rows = cur.fetchall()
         conn.close()
 

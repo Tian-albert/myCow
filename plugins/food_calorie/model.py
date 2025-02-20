@@ -16,7 +16,7 @@ class User:
         :param weight: 体重，单位kg
         :param gender: 0=未知,1=男,2=女
         :param age: 年龄
-        :param activity_level: 活动水平, 默认值为'久坐不动'
+        :param activity_level: 活动水平, 默认值为'轻度活动'
                                 久坐不动（几乎不运动）：BMR × 1.2
                                 轻度活动（轻度运动或运动1-3天/周）：BMR × 1.375
                                 中度活动（中等强度运动或运动3-5天/周）：BMR × 1.55
