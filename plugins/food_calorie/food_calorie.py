@@ -43,6 +43,7 @@ class food_calorie(Plugin):
             # 初始化数据库
             self.db_path = os.path.join(curdir, "food_calorie.db")
             self.init_database()
+            # self.db = DBManager
 
             config_path = os.path.join(curdir, "config.json")
             if not os.path.exists(config_path):
