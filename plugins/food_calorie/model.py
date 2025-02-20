@@ -6,7 +6,8 @@ class User:
                  height: float = None,
                  weight: float = None,
                  gender: int = 0,
-                 age: int = 22):
+                 age: int = 22,
+                 activity_level: str = '久坐不动'):
         """
         :param user_id: user表主键，自增
         :param wx_id: 微信用户ID
@@ -15,6 +16,12 @@ class User:
         :param weight: 体重，单位kg
         :param gender: 0=未知,1=男,2=女
         :param age: 年龄
+        :param activity_level: 活动水平, 默认值为'久坐不动'
+                                久坐不动（几乎不运动）：BMR × 1.2
+                                轻度活动（轻度运动或运动1-3天/周）：BMR × 1.375
+                                中度活动（中等强度运动或运动3-5天/周）：BMR × 1.55
+                                高度活动（高强度运动或运动6-7天/周）：BMR × 1.725
+                                极度活动（极高强度运动，体力劳动者）：BMR × 1.9
         """
         self.user_id = user_id
         self.wx_id = wx_id
@@ -23,17 +30,19 @@ class User:
         self.weight = weight
         self.gender = gender
         self.age = age
+        self.activity_level = activity_level
 
     def __repr__(self):
         return (f"<User user_id={self.user_id}, wx_id={self.wx_id}, nickname={self.nickname}, "
-                f"height={self.height}, weight={self.weight}, gender={self.gender}, age={self.age}>")
+                f"height={self.height}, weight={self.weight}, gender={self.gender}, age={self.age}, "
+                f"activity_level={self.activity_level}>")
 
     @classmethod
     def from_row(cls, row: tuple):
         """
         根据数据库返回的tuple行来构造User对象。
         row的顺序应与SELECT时的字段顺序对应：
-        e.g. SELECT user_id, wx_id, nickname, height, weight, gender, age
+        e.g. SELECT user_id, wx_id, nickname, height, weight, gender, age, activity_level
         """
         if not row:
             return None
@@ -44,8 +53,10 @@ class User:
             height=row[3],
             weight=row[4],
             gender=row[5],
-            age=row[6]
+            age=row[6],
+            activity_level=row[7] if len(row) > 7 else '久坐不动'  # 加入活动水平字段
         )
+
 
 
 class FoodRecord:
