@@ -18,6 +18,7 @@ from datetime import datetime
 from models import db_session, ImageMessage
 import hashlib
 import sqlite3
+from HealthService import HealthService
 
 config = conf()
 channel_name = conf().get("channel_type", "wx")
@@ -38,14 +39,12 @@ class food_calorie(Plugin):
     def __init__(self):
         super().__init__()
         try:
-            curdir = os.path.dirname(__file__)
+            # 初始化HealthService
+            self.health_service = HealthService()
 
-            # 初始化数据库
-            self.db_path = os.path.join(curdir, "food_calorie.db")
-            self.init_database()
-            # self.db = DBManager
-
-            config_path = os.path.join(curdir, "config.json")
+            # 加载配置
+            cur_dir = os.path.dirname(__file__)
+            config_path = os.path.join(cur_dir, "config.json")
             if not os.path.exists(config_path):
                 logger.debug(f"[food_calorie]不存在配置文件{config_path}")
                 conf = {
@@ -80,54 +79,6 @@ class food_calorie(Plugin):
             logger.warn("[food_calorie] init failed.")
             raise e
 
-    def init_database(self):
-        """初始化数据库表结构"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            # 创建用户信息表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_info (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                nickname TEXT,
-                height REAL,
-                weight REAL,
-                gender TEXT DEFAULT 'male',  
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-
-            # 创建食物记录表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS food_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                food_name TEXT NOT NULL,
-                weight REAL DEFAULT 100.0,
-                calories REAL NOT NULL,
-                total_calories REAL NOT NULL,
-                is_confirmed INTEGER DEFAULT 0,  
-                confirmed_calories REAL,         
-                record_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-
-            # 检查新增列是否存在
-            cursor.execute("PRAGMA table_info(food_records)")
-            columns = [column[1] for column in cursor.fetchall()]
-            if 'is_confirmed' not in columns:
-                cursor.execute('ALTER TABLE food_records ADD COLUMN is_confirmed INTEGER DEFAULT 0')
-            if 'confirmed_calories' not in columns:
-                cursor.execute('ALTER TABLE food_records ADD COLUMN confirmed_calories REAL')
-
-            conn.commit()
-            conn.close()
-            logger.info("[food_calorie] Database initialized successfully")
-        except Exception as e:
-            logger.error(f"[food_calorie] Failed to initialize database: {e}")
-            raise e
 
     def save_image(self, image_data, chat_id, uploader_nickname, img_url=None):
         """保存图片到本地并更新数据库"""
@@ -254,63 +205,35 @@ class food_calorie(Plugin):
         content = context.content.strip()
 
         # 解析命令
-        if content.startswith("设置身高体重"):
+        if content.startswith("设置个人信息"):
             try:
-                # 格式: 设置身高体重 170 65 男/女
-                parts = content.split()
-                if len(parts) < 4:
-                    raise ValueError("参数不足")
-
-                _, height, weight, gender_str = parts
-                height = float(height)
-                weight = float(weight)
-
-                # 转换性别输入
-                gender = "female" if gender_str in ["女", "female", "f"] else "male"
-
+                # 格式: 设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动
                 user_id = msg.from_user_id
                 nickname = msg.from_user_nickname
 
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-
-                # 检查用户是否存在
-                cursor.execute('SELECT id FROM user_info WHERE user_id = ?', (user_id,))
-                user = cursor.fetchone()
-
-                if user:
-                    # 更新用户信息
-                    cursor.execute('''
-                        UPDATE user_info 
-                        SET height = ?, weight = ?, gender = ?
-                        WHERE user_id = ?
-                    ''', (height, weight, gender, user_id))
+                res = self.health_service.save_user_info(wx_id=user_id, nickname=nickname, content=content)
+                if res:
+                    user = self.health_service.get_user_info(wx_id=user_id)
+                    reply = Reply(ReplyType.TEXT,
+                                  f"已更新您的个人信息：\n"
+                                  f"身高：{user.height}cm\n"
+                                  f"体重：{user.weight}kg\n"
+                                  f"年龄：{user.age}岁\n"
+                                  f"性别：{user.gender}\n"
+                                  f"活动水平：{user.activity_level}\n"
+                                  )
+                    e_context["reply"] = reply
                 else:
-                    # 创建新用户
-                    cursor.execute('''
-                        INSERT INTO user_info (user_id, nickname, height, weight, gender)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (user_id, nickname, height, weight, gender))
-
-                conn.commit()
-                conn.close()
-
-                reply = Reply(ReplyType.TEXT,
-                              f"已更新您的个人信息：\n"
-                              f"身高：{height}cm\n"
-                              f"体重：{weight}kg\n"
-                              f"性别：{'女' if gender == 'female' else '男'}")
-                e_context["reply"] = reply
+                    reply = Reply(ReplyType.TEXT,
+                                  "设置失败，请使用正确的格式：\n"
+                                  "例如：设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动")
+                    e_context["reply"] = reply
 
             except ValueError as e:
                 reply = Reply(ReplyType.TEXT,
                               "设置失败，请使用正确的格式：\n"
-                              "设置身高体重 身高 体重 性别\n"
-                              "例如：设置身高体重 170 65 男")
+                              "例如：设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动")
                 e_context["reply"] = reply
-                if 'conn' in locals():
-                    conn.rollback()
-                    conn.close()
 
             e_context.action = EventAction.BREAK_PASS
             return
@@ -600,7 +523,7 @@ class food_calorie(Plugin):
 
         if context.type == ContextType.TEXT:
             content = context.content.strip()
-            if content.startswith("设置身高体重"):
+            if content.startswith("设置个人信息"):
                 return self.handle_user_info(e_context)
             elif content == "今日卡路里" or content == "今日热量":
                 return self.handle_calorie_query(e_context)

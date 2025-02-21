@@ -69,7 +69,7 @@ class DBManager:
                     food_record_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
                     total_calories REAL NOT NULL,
-                    record_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    record_time TIMESTAMP DEFAULT (datetime('now','localtime'))
                 )
             ''')
 
@@ -88,7 +88,7 @@ class DBManager:
                 CREATE TABLE IF NOT EXISTS exercise_record (
                     exercise_id       INTEGER PRIMARY KEY AUTOINCREMENT,
                     exercise_name     TEXT NOT NULL,
-                    exercise_time     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    exercise_time     TIMESTAMP DEFAULT (datetime('now','localtime')),
                     user_id           INTEGER NOT NULL,
                     burned_calories   REAL NOT NULL -- 运动总消耗
                 );
@@ -425,8 +425,8 @@ class FoodRecordDAO:
         if record_time is None:
             # 直接在 SQL 里使用CURRENT_TIMESTAMP
             sql = """
-                INSERT INTO food_record (user_id, total_calories, record_time)
-                VALUES (?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO food_record (user_id, total_calories)
+                VALUES (?, ?)
             """
             cur.execute(sql, (user_id, total_calories))
         else:
