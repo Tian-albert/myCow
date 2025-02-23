@@ -80,7 +80,7 @@ class Core(object):
                 - uuid: if uuid is not set, latest uuid you fetched will be used
             for return values:
                 - a string will be returned
-                - for meaning of return values
+                - for reply_content of return values
                     - 200: log in successfully
                     - 201: waiting for press confirm
                     - 408: uuid timed out

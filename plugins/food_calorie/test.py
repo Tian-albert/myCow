@@ -45,7 +45,7 @@ class MyTestCase(unittest.TestCase):
         health_service = HealthService()
         # health_service.save_user_info(wx_id="000", nickname="Horse", content="设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动")  # 测试保存用户信息 content="设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动"
         # userDAO = UserDAO()
-        # print(health_service.calculate_bmr(userDAO.get_user_by_wx_id(wx_id="222")))  # 测试计算bmr
+        # print(health_service._calculate_bmr(userDAO.get_user_by_wx_id(wx_id="222")))  # 测试计算bmr
         # health_service.save_exercise_record("999", "Adele", "记录运动 游泳 消耗150千卡")  # 记录运动 游泳 消耗150千卡
 
         content = """玉米：约90千卡

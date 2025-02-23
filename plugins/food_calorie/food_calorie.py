@@ -108,94 +108,23 @@ class food_calorie(Plugin):
             db_session.rollback()
             return None
 
-    def update_media_meaning(self, file_path, meaning, context, is_emoji=False):
+    def update_food_record(self, reply_content, context, is_emoji=False):
         """更新食物记录"""
-        if '无法直接' in meaning or '没有实际' in meaning:
-            logger.warning(f"[food_calorie] 无法识别: {meaning}")
+        if '无法直接' in reply_content or '没有实际' in reply_content:
+            logger.warning(f"[food_calorie] 无法识别: {reply_content}")
             return
         try:
             if is_emoji:
                 return  # 跳过表情处理
 
-            logger.info(f"[food_calorie] 开始处理识别结果: {meaning[:100]}...")
-
-            # 解析识别结果
-            foods = []
-            total_calories = 0
-
-            # 使用正则表达式提取食物信息
-            food_pattern = r'([^：\n]+)：(?:约)?(\d+)千卡(?:\(每100克\)?|（具体热量.*)?'
-            matches = re.finditer(food_pattern, meaning)
-
-            # 记录所有匹配结果
-            all_matches = []
-            for match in matches:
-                all_matches.append(match)
-
-            if not all_matches:
-                logger.warning(f"[food_calorie] 未找到食物信息，原文: {meaning}")
-                return
-
-            logger.info(f"[food_calorie] 找到 {len(all_matches)} 个食物匹配")
-
-            # 处理每个匹配的食物
-            for match in all_matches:
-                food_name = match.group(1).strip()
-                calories = float(match.group(2))
-
-                # 记录匹配的详细信息
-                logger.debug(f"[food_calorie] 匹配食物: {food_name}, 卡路里: {calories}")
-
-                # 默认100g
-                weight = 100.0
-                total_cal = calories
-
-                foods.append({
-                    'name': food_name,
-                    'weight': weight,
-                    'calories': calories,
-                    'total_calories': total_cal
-                })
-                total_calories += total_cal
-
             # 保存到数据库
             msg = context["msg"]
             user_id = msg.from_user_id
-
-            logger.info(f"[food_calorie] 准备保存 {len(foods)} 个食物记录, 用户ID: {user_id}")
-            logger.info(f"[food_calorie] 总卡路里: {total_calories}")
-
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            # 记录每个食物的保存状态
-            for food in foods:
-                try:
-                    cursor.execute('''
-                        INSERT INTO food_records 
-                        (user_id, food_name, weight, calories, total_calories, record_time)
-                        VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                    ''', (
-                        user_id,
-                        food['name'],
-                        food['weight'],
-                        food['calories'],
-                        food['total_calories']
-                    ))
-                    logger.debug(f"[food_calorie] 成功保存食物: {food['name']}")
-                except Exception as e:
-                    logger.error(f"[food_calorie] 保存食物 {food['name']} 失败: {e}")
-                    raise
-
-            conn.commit()
-            conn.close()
+            nickname = msg.from_user_nickname
+            self.health_service.save_food_record(wx_id=user_id, content=reply_content, nickname=nickname)
             logger.info(f"[food_calorie] 所有食物记录保存完成")
-
         except Exception as e:
             logger.error(f"[food_calorie] 更新食物记录时发生错误: {e}")
-            if 'conn' in locals():
-                conn.rollback()
-                conn.close()
 
     def handle_user_info(self, e_context: EventContext):
         """处理命令：保存用户信息"""
@@ -304,8 +233,6 @@ class food_calorie(Plugin):
             if not all(attr in img_element.attrib for attr in required_attrs):
                 return None, "图片缺少必要属性"
 
-            # TODO: 补充图片XML中必要的元素值
-
             return content, None
 
         except ET.ParseError as e:
@@ -389,19 +316,19 @@ class food_calorie(Plugin):
             elif content.startswith("记录运动"):
                 return self.handle_exercise_info(e_context)
 
-        # 处理收藏命令
-        if context.type == ContextType.TEXT and context.content.strip() == "收藏":
-            return self._handle_save_command(e_context)
+        # 处理识别热量命令——识别历史消息中最近的一张图片
+        if context.type == ContextType.TEXT and context.content.strip() == "识别热量":
+            return self._handle_recognition_command_history(e_context)
 
-        # 处理识别命令
+        # 处理识别热量命令——识别引用信息中的图片
         if context.type == ContextType.XML:
-            return self._handle_recognition_command(e_context)
+            return self._handle_recognition_command_reference(e_context)
 
         return
 
-    def _handle_save_command(self, e_context: EventContext):
+    def _handle_recognition_command_history(self, e_context: EventContext):
         """
-        处理收藏命令
+        处理识别命令
         处理流程：
         1. 获取用户信息
         2. 从缓存获取最近消息
@@ -463,12 +390,17 @@ class food_calorie(Plugin):
 
             if not file_path:
                 raise Exception("保存文件失败")
+
+            # 获取用户信息
+            user_id = msg.from_user_id
+            prompt = self.user_info_prompt(user_id)
+
             image_url_local = get_image_url(file_path)
             image_url_local = image_url_local.replace("\\", "/")
             logger.info(f"要发送的图片 {image_url_local}")
             # 设置context用于识别
             e_context["context"].type = ContextType.TEXT
-            e_context["context"].content = "记录这个图片， 返回热量信息"
+            e_context["context"].content = prompt
             if not hasattr(e_context["context"], "kwargs"):
                 e_context["context"].kwargs = {}
             e_context["context"].kwargs.update({
@@ -485,7 +417,7 @@ class food_calorie(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
-    def _handle_recognition_command(self, e_context: EventContext):
+    def _handle_recognition_command_reference(self, e_context: EventContext):
         """
         处理识别命令
         处理流程：
@@ -506,7 +438,7 @@ class food_calorie(Plugin):
 
             # 检查命令
             title = result.get('title', '').strip()
-            if not title.startswith("记录") and not title.startswith("热量"):
+            if not title.startswith("记录") and not title.startswith("热量") and not title.startswith("识别热量"):
                 return
 
             # 获取引用信息
@@ -522,7 +454,7 @@ class food_calorie(Plugin):
                 content, msg_type, error_msg = self.process_history_message(svrid)
 
             # 如果历史消息不存在或没有内容，尝试处理引用内容
-            #content=None
+            # content=None
             if not content:  # 修改这里的判断条件，只要没有content就尝试处理引用内容
 
                 content, msg_type, error_msg = self.process_reference_message(reference)
@@ -567,26 +499,8 @@ class food_calorie(Plugin):
 
             # 获取用户信息
             user_id = msg.from_user_id
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('SELECT height, weight, gender FROM user_info WHERE user_id = ?', (user_id,))
-            user_info = cursor.fetchone()
+            prompt = self.user_info_prompt(user_id)
 
-            # 构建提示词
-            base_prompt = "识别这张图片中的食物，列出每种食物的卡路里含量，并计算总热量。"
-            if user_info:
-                height, weight, gender = user_info
-                bmi = weight / ((height / 100) ** 2)
-                health_status = "偏瘦" if bmi < 18.5 else "正常" if bmi < 24 else "偏重"
-
-                prompt = (
-                    f"{base_prompt}\n"
-                    f"请注意：用户身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，属于{health_status}体型。"
-                    f"请根据用户的身体状况给出个性化的饮食建议。"
-                )
-
-            else:
-                prompt = base_prompt + "\n请给出通用的健康饮食建议。"
             image_url_local = get_image_url(file_path)
             image_url_local = image_url_local.replace("\\", "/")
             logger.info(f"要发送的图片 {image_url_local}")
@@ -607,19 +521,15 @@ class food_calorie(Plugin):
                 "msg_type": msg_type
             })
             e_context.action = EventAction.BREAK
-
-            conn.close()
-
         except Exception as e:
             logger.error(f"[food_calorie] Recognition command failed: {e}")
-            reply = Reply(ReplyType.TEXT, f"处理失败: {str(e)}")
+            reply = Reply(ReplyType.TEXT, f"图像识别处理失败: {str(e)}")
             e_context["reply"] = reply
-            if 'conn' in locals():
-                conn.close()
+
             e_context.action = EventAction.BREAK_PASS
 
     def on_decorate_reply(self, e_context: EventContext):
-        """处理回复装饰，用于更新媒体含义"""
+        """处理回复装饰"""
         context = e_context["context"]
         reply = e_context["reply"]
 
@@ -628,19 +538,39 @@ class food_calorie(Plugin):
             file_path = context.kwargs.get("file_path")
             msg_type = context.kwargs.get("msg_type")
             if file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
-                self.update_media_meaning(file_path, reply.content, context, is_emoji=(msg_type == "emoji"))
+                self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"))
 
     def get_help_text(self, **kwargs):
         help_text = (
-            "1. 发送\"记录\"并引用一张图片即可识别图片内容\n"
-            "2. 发送\"热量\"可以识别最近的一张图片\n"
-            "3. 发送\"设置身高体重 [身高] [体重] [性别]\"记录个人信息\n"
-            "   例如：设置身高体重 170 65 男\n"
-            "4. 发送\"记录热量 数字卡\"确认食物热量\n"
-            "   例如：记录热量 336卡\n"
-            "5. 发送\"今日卡路里\\今日热量\"查看今日饮食记录和热量统计"
+            "1. 发送\"识别热量\"并引用一张图片即可识别图片中食物的热量\n"
+            "2. 发送\"识别热量\"可以识别最近的一张图片中食物的热量（必须是最近的消息且消息是图片）\n"
+            "3. 发送\"设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动\"记录个人信息\n"
+            "4. 发送\"记录运动 跑步 消耗150千卡\"可以记录运动信息\n"
+            "5. 发送\"今日卡路里\\今日热量\"查看今日饮食记录、运动记录和热量统计"
         )
         return help_text
+
+    def user_info_prompt(self, wx_id):
+        prompt = ""
+        user_info = self.health_service.get_user_info(wx_id=wx_id)
+        # 构建提示词
+        base_prompt = "图片中是我当前的饮食，识别这张图片中的食物，列出每种食物的卡路里含量，并计算总热量。\n"
+        if user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
+            height = user_info.height
+            weight = user_info.weight
+            gender = "男" if user_info.gender == 1 else "女"
+            activity_level = user_info.activity_level
+            age = user_info.age
+            bmi = weight / ((height / 100) ** 2)
+
+            prompt = (
+                f"{base_prompt}\n"
+                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}，活动水平是{activity_level}"
+                f"请根据我的身体状况给出个性化的饮食建议。"
+            )
+        else:
+            prompt = base_prompt + "\n请给出健康饮食建议。"
+        return prompt
 
 
 def get_image_url(image_name):

@@ -16,14 +16,18 @@ class HealthService:
         根据大模型返回的内容提取食物记录并保存到数据库中。
         """
         # 正则表达式提取总热量
-        total_calories = self.extract_total_calories(content)
+        total_calories = self._extract_total_calories(content)
+        logger.info(f"提取到的总热量为: {total_calories}")
+        if total_calories == 0.0:
+            logger.error(f"[HealthService] 未提取到总热量，原文为：[{content}]")
+            return None
 
         # 根据食物和热量保存食物记录
         food_record_id = self._save_food_record_in_db(wx_id, nickname, total_calories, content)
 
         return food_record_id
 
-    def extract_total_calories(self, content):
+    def _extract_total_calories(self, content):
         """
         提取总热量值，使用正则表达式从内容中获取。
         整个表达式匹配的内容 是 完整匹配（group(0)）。
@@ -50,19 +54,26 @@ class HealthService:
             if res:
                 user = self.user_dao.get_user_by_wx_id(wx_id)
             else:
+                logger.error(f"[HealthService] 创建用户{wx_id}失败")
                 return None
+
+        food_items = self._extract_food_items(content)
+        if not food_items:
+            logger.error(f"[HealthService] 未提取到食物记录，原文为[{content}]")
+            return None
 
         # 保存食物记录到 food_record 表
         food_record_id = self.food_record_dao.insert_record(user.user_id, total_calories)
+        logger.info(f"保存食物记录到 food_record 表，food_record_id: {food_record_id}")
 
         # 提取食物信息并保存到 food 表
-        food_items = self.extract_food_items(content)
         for food_item in food_items:
             self.food_dao.insert_food(food_item['food_name'], food_item['calories'], food_record_id)
+        logger.info(f"保存{len(food_items)}个食物记录到 food 表")
 
         return food_record_id
 
-    def extract_food_items(self, content):
+    def _extract_food_items(self, content):
         """
         提取食物名称和对应的热量
         ([^：:\n]+)      捕获组1：匹配食物名称，直到遇到冒号
@@ -135,8 +146,8 @@ class HealthService:
             report += f"总运动消耗：{total_burned_calories}千卡\n"
 
         # 获取用户的基础代谢率(BMR)和每日建议摄入热量
-        bmr = self.calculate_bmr(user)
-        recommended_calories = bmr * self.activity_level_factor(user.activity_level)
+        bmr = self._calculate_bmr(user)
+        recommended_calories = bmr * self._activity_level_factor(user.activity_level)
 
         remaining_calories = recommended_calories - total_calories + total_burned_calories
 
@@ -148,7 +159,7 @@ class HealthService:
             report += f"提示：完善个人信息可获取推荐摄入热量"
         return report
 
-    def calculate_bmr(self, user):
+    def _calculate_bmr(self, user):
         """
         计算用户的基础代谢率（BMR），根据性别、身高和体重使用哈里斯-贝尼迪克特公式
         如果用户的个人信息不完善，因子为0，系统不会计算用户的每日推荐摄入热量
@@ -162,7 +173,7 @@ class HealthService:
         else:  # 未知性别
             return 0.0
 
-    def activity_level_factor(self, activity_level):
+    def _activity_level_factor(self, activity_level):
         """
         根据活动水平返回活动因子
         """
