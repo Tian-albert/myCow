@@ -7,7 +7,7 @@ class User:
                  weight: float = None,
                  gender: int = 0,
                  age: int = 22,
-                 activity_level: str = '久坐不动'):
+                 activity_level: str = '轻度活动'):
         """
         :param user_id: user表主键，自增
         :param wx_id: 微信用户ID
