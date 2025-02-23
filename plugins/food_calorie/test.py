@@ -43,7 +43,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_HealthService(self):
         health_service = HealthService()
-        health_service.save_user_info(wx_id="000", nickname="Horse", content="设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动")  # 测试保存用户信息 content="设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动"
+        # health_service.save_user_info(wx_id="000", nickname="Horse", content="设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动")  # 测试保存用户信息 content="设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动"
         # userDAO = UserDAO()
         # print(health_service.calculate_bmr(userDAO.get_user_by_wx_id(wx_id="222")))  # 测试计算bmr
         # health_service.save_exercise_record("999", "Adele", "记录运动 游泳 消耗150千卡")  # 记录运动 游泳 消耗150千卡
@@ -68,8 +68,10 @@ class MyTestCase(unittest.TestCase):
                     请注意，这些建议是基于一般性指导原则，具体饮食计划应根据个人健康状况和营养需求进行调整。如有需要，建议咨询专业营养师或医生的意见。"""
         # content = "肠粉:约50千卡                    鸭蛋：约60千卡                    总热量：约110千卡"
         # health_service.save_food_record("888", "Amy", content)
-        # res = health_service.get_user_today_food_report("222", "Rich")
+        # res = health_service.get_user_today_food_report("222", "222")
         # print(res)
+        res = health_service.get_exercise_info(exercise_id=1)
+        print(res)
 
     def testTime(self):
         print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

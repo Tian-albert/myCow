@@ -19,7 +19,7 @@ class HealthService:
         total_calories = self.extract_total_calories(content)
 
         # 根据食物和热量保存食物记录
-        food_record_id = self.save_food_record_in_db(wx_id, nickname, total_calories, content)
+        food_record_id = self._save_food_record_in_db(wx_id, nickname, total_calories, content)
 
         return food_record_id
 
@@ -39,7 +39,7 @@ class HealthService:
             return float(match.group(1))
         return 0.0
 
-    def save_food_record_in_db(self, wx_id, nickname, total_calories, content):
+    def _save_food_record_in_db(self, wx_id, nickname, total_calories, content):
         """
         将食物记录保存到food_record表，并将食物名称和热量保存到food表中。
         """
@@ -94,38 +94,46 @@ class HealthService:
                 user = self.user_dao.get_user_by_wx_id(wx_id)
             else:
                 logger.error(f"[HealthService] 创建用户{wx_id}失败")
-                return None
+                return f"创建用户{wx_id}失败"
 
         # 获取当天的饮食记录
         food_records = self.food_record_dao.list_records_by_user(user.user_id,
                                                                  date_str=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        report = ""
         total_calories = 0
-        report = "今日饮食记录：\n"
-
-
-        count = 1
-        for record in food_records:
-            report += f"第 {count} 餐\n"
-            count += 1
-            foods = self.food_dao.list_foods_by_record(record.food_record_id)
-            record_total = 0  # 总摄入热量
-            for food in foods:
-                record_total += food.calories
-                report += f"- {food.food_name}: {food.calories}千卡\n"
-            total_calories += record_total
-            report += f"总热量：{record_total}千卡\n\n"  # 空行隔开每条记录
+        if not food_records:
+            # 处理空记录的情况
+            report += "今日暂无饮食记录\n"
+        else:
+            report += "今日饮食记录：\n"
+            count = 1
+            for record in food_records:
+                report += f"第 {count} 餐\n"
+                count += 1
+                foods = self.food_dao.list_foods_by_record(record.food_record_id)
+                record_total = 0  # 总摄入热量
+                for food in foods:
+                    record_total += food.calories
+                    report += f"- {food.food_name}: {food.calories}千卡\n"
+                total_calories += record_total
+                report += f"总热量：{record_total}千卡\n\n"  # 空行隔开每条记录
 
         # 获取用户今日运动消耗的热量
         # 获取当天所有运动记录
         exercise_records = self.exercise_dao.list_exercises_by_user(user.user_id, date_str=datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"))
         total_burned_calories = 0  # 今日运动总消耗的热量
-        report += "今日运动记录：\n"
+        if not exercise_records:
+            # 处理空记录的情况
+            report += "今日暂无运动记录\n"
+        else:
 
-        for record in exercise_records:
-            report += f"- {record.exercise_name}: {record.burned_calories}千卡\n"
-            total_burned_calories += record.burned_calories
-        report += f"总运动消耗：{total_burned_calories}千卡\n"
+            report += "今日运动记录：\n"
+            for record in exercise_records:
+                report += f"- {record.exercise_name}: {record.burned_calories}千卡\n"
+                total_burned_calories += record.burned_calories
+            report += f"总运动消耗：{total_burned_calories}千卡\n"
+
         # 获取用户的基础代谢率(BMR)和每日建议摄入热量
         bmr = self.calculate_bmr(user)
         recommended_calories = bmr * self.activity_level_factor(user.activity_level)
@@ -133,7 +141,7 @@ class HealthService:
         remaining_calories = recommended_calories - total_calories + total_burned_calories
 
         report += f"\n今日总摄入：{total_calories:.1f}千卡\n"
-        if(recommended_calories != 0):
+        if recommended_calories != 0:
             report += f"每日建议摄入：{recommended_calories:.1f}千卡\n"
             report += f"今日还可以摄入：{remaining_calories:.1f}千卡\n"
         else:
@@ -190,7 +198,6 @@ class HealthService:
         if not burned_calories_str or not burned_calories_str.isdigit():
             return None
         burned_calories = float(burned_calories_str)
-
 
         # 获取/创建用户
         user = self.user_dao.get_user_by_wx_id(wx_id)
@@ -254,7 +261,6 @@ class HealthService:
 
         活动水平有 "久坐不动","轻度活动","中度活动","高度活动","极度活动"五个
         """
-
 
         # 如果content为空，仅创建一个空的用户信息 (只含 wx_id, nickname)
         if not content:
@@ -368,3 +374,6 @@ class HealthService:
 
     def get_user_info(self, wx_id):
         return self.user_dao.get_user_by_wx_id(wx_id)
+
+    def get_exercise_info(self, exercise_id):
+        return self.exercise_dao.get_exercise_by_id(exercise_id)

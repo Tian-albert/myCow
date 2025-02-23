@@ -79,7 +79,6 @@ class food_calorie(Plugin):
             logger.warn("[food_calorie] init failed.")
             raise e
 
-
     def save_image(self, image_data, chat_id, uploader_nickname, img_url=None):
         """保存图片到本地并更新数据库"""
         try:
@@ -199,7 +198,7 @@ class food_calorie(Plugin):
                 conn.close()
 
     def handle_user_info(self, e_context: EventContext):
-        """处理用户信息命令"""
+        """处理命令：保存用户信息"""
         context = e_context["context"]
         msg = context["msg"]
         content = context.content.strip()
@@ -225,7 +224,7 @@ class food_calorie(Plugin):
                     e_context["reply"] = reply
                 else:
                     reply = Reply(ReplyType.TEXT,
-                                  "设置失败，请使用正确的格式：\n"
+                                  "设置失败，请使用正确的格式！\n"
                                   "例如：设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动")
                     e_context["reply"] = reply
 
@@ -313,108 +312,32 @@ class food_calorie(Plugin):
             logger.error(f"[food_calorie] Failed to parse image XML: {e}")
             return None, "图片解析失败"
 
-    def handle_calorie_confirm(self, e_context: EventContext):
-        """处理用户确认卡路里命令"""
+    def handle_exercise_info(self, e_context: EventContext):
+        """处理命令：设置运动信息"""
         context = e_context["context"]
         msg = context["msg"]
         content = context.content.strip()
 
         try:
             # 格式: 记录热量 数字
-            if content.startswith("记录热量"):
-                # 提取数字
-                calories_match = re.search(r'记录热量\s*(\d+)\s*', content)
-                if not calories_match:
-                    raise ValueError("格式错误")
+            if content.startswith("记录运动"):
 
-                total_calories = float(calories_match.group(1))
                 user_id = msg.from_user_id
+                nickname = msg.from_user_nickname
+                reply_text = ""
 
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-
-                # 获取最近一次识别的未确认食物记录
-                cursor.execute('''
-                    SELECT food_name, calories, total_calories
-                    FROM food_records 
-                    WHERE user_id = ? 
-                    AND is_confirmed = 0
-                    AND food_name <> '总热量'
-                    AND record_time = (
-                        SELECT record_time
-                        FROM food_records
-                        WHERE user_id = ?
-                        AND is_confirmed = 0
-                        
-                        ORDER BY record_time DESC
-                        LIMIT 1
-                    )
-                ''', (user_id, user_id))
-
-                records = cursor.fetchall()
-
-                if records:
-                    # 计算原始总卡路里
-                    original_total = sum(record[2] for record in records)
-                    food_names = []
-
-                    # 更新每个食物的confirmed_calories
-                    for food_name, calories, original_cal in records:
-                        food_names.append(food_name)
-                        # 如果原始总卡路里为0，平均分配；否则按比例分配
-                        if original_total > 0:
-                            ratio = original_cal / original_total
-                            confirmed_cal = round(total_calories * ratio, 0)
-                        else:
-                            confirmed_cal = round(total_calories / len(records), 0)
-
-                        cursor.execute('''
-                            UPDATE food_records 
-                            SET is_confirmed = 1, 
-                                confirmed_calories = ?
-                            WHERE user_id = ? 
-                            AND food_name = ?
-                            AND is_confirmed = 0
-                            AND food_name <> '总热量'
-                            AND record_time = (
-                                SELECT record_time
-                                FROM food_records
-                                WHERE user_id = ?
-                                AND is_confirmed = 0
-                                ORDER BY record_time DESC
-                                LIMIT 1
-                            )
-                        ''', (confirmed_cal, user_id, food_name, user_id))
-
-                    cursor.execute('''
-                                UPDATE food_records 
-                                SET is_confirmed = 1, 
-                                    confirmed_calories = ?
-                                WHERE user_id = ? 
-                                AND food_name = ?
-                                AND is_confirmed = 0
-                                AND record_time = (
-                                    SELECT record_time
-                                    FROM food_records
-                                    WHERE user_id = ?
-                                    AND is_confirmed = 0
-                                    AND food_name = '总热量'
-                                    ORDER BY record_time DESC
-                                    LIMIT 1
-                                )
-                            ''', (total_calories, user_id, '总热量', user_id))
-                    reply_text = f"已记录食物({', '.join(food_names)})的总热量为{total_calories}千卡"
+                exercise_id = self.health_service.save_exercise_record(wx_id=user_id, nickname=nickname,
+                                                                       content=content)
+                if exercise_id:
+                    exercise = self.health_service.get_exercise_info(exercise_id=exercise_id)
+                    reply_text = f"已记录运动：\n" \
+                                 f"运动名称：{exercise.exercise_name}\n" \
+                                 f"消耗热量：{exercise.burned_calories}千卡\n" \
+                                 f"记录时间：{exercise.record_time}"""
                 else:
-                    # 如果没有找到未确认记录，创建新记录
-                    cursor.execute('''
-                        INSERT INTO food_records 
-                        (user_id, food_name, weight, calories, total_calories, is_confirmed, confirmed_calories, record_time)
-                        VALUES (?, ?, ?, ?, ?, 1, ?, datetime('now', 'localtime'))
-                    ''', (user_id, "总热量", 100.0, total_calories, total_calories, total_calories))
-                    reply_text = f"已新增卡路里记录：{total_calories}千卡"
-
-                conn.commit()
-                conn.close()
+                    reply_text = "记录失败，请使用正确的格式：\n" \
+                                 "记录运动 运动名称 消耗多少千卡\n" \
+                                 "例如：记录运动 跑步 消耗150千卡"
 
                 reply = Reply(ReplyType.TEXT, reply_text)
                 e_context["reply"] = reply
@@ -424,98 +347,34 @@ class food_calorie(Plugin):
             logger.error(f"[food_calorie] Error confirming calories: {e}")
             reply = Reply(ReplyType.TEXT,
                           "记录失败，请使用正确的格式：\n"
-                          "记录热量 数字卡\n"
-                          "例如：记录热量 336卡")
+                          "记录运动 运动名称 消耗多少千卡\n"
+                          "例如：记录运动 跑步 消耗150千卡")
             e_context["reply"] = reply
-            if 'conn' in locals():
-                conn.rollback()
-                conn.close()
             e_context.action = EventAction.BREAK_PASS
 
     def handle_calorie_query(self, e_context: EventContext):
-        """处理卡路里查询命令"""
+        """处理命令：查询今日卡路里/今日热量"""
         context = e_context["context"]
         msg = context["msg"]
         content = context.content.strip()
 
         try:
             user_id = msg.from_user_id
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            nickname = msg.from_user_nickname
 
             if content == "今日卡路里" or content == "今日热量":
                 # 查询今日摄入的所有食物和总卡路里
-                cursor.execute('''
-                    SELECT food_name, weight, calories, 
-                           CASE WHEN is_confirmed = 1 THEN confirmed_calories ELSE calories END as actual_calories,
-                           is_confirmed
-                    FROM food_records 
-                    WHERE user_id = ? 
-                    AND date(record_time) = date('now', 'localtime')
-                    ORDER BY record_time DESC
-                ''', (user_id,))
-
-                today_foods = cursor.fetchall()
-
-                if not today_foods:
-                    reply_text = "今天还没有记录任何食物哦"
-                else:
-                    # 计算今日总卡路里（使用confirmed_calories或total_calories）
-                    cursor.execute('''
-                        SELECT SUM(CASE WHEN is_confirmed = 1 THEN confirmed_calories ELSE total_calories END) 
-                        FROM food_records 
-                        WHERE user_id = ? 
-                        AND food_name <> '总热量'
-                        AND date(record_time) = date('now', 'localtime')
-                    ''', (user_id,))
-
-                    total_calories = cursor.fetchone()[0]
-
-                    # 获取用户信息
-                    cursor.execute('SELECT height, weight, gender FROM user_info WHERE user_id = ?', (user_id,))
-                    user_info = cursor.fetchone()
-
-                    reply_text = "今日饮食记录：\n"
-                    for food in today_foods:
-                        food_name, weight, calories, actual_calories, is_confirmed = food
-                        status = "✓" if is_confirmed else "?"  # 添加标记表示是否经过确认
-                        reply_text += f"- {food_name}: {actual_calories}千卡 {status}\n"
-                        if '总热量' in food_name:
-                            reply_text += f"\n"
-
-                    reply_text += f"\n今日总摄入：{total_calories:.1f}千卡"
-
-                    # 如果有用户信息，添加建议
-                    if user_info:
-                        height, weight, gender = user_info
-                        # 计算基础代谢率(BMR) - 使用修正的Harris-Benedict公式
-                        if gender == "female":
-                            bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * 25)
-                        else:
-                            bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * 25)
-
-                        # 假设轻度活动水平，每日所需热量约为BMR*1.375
-                        daily_need = bmr * 1.375
-
-                        reply_text += f"\n每日建议摄入：{daily_need:.1f}千卡"
-                        if total_calories > daily_need:
-                            reply_text += "\n提醒：今日摄入已超过建议值，建议适当运动"
-                        else:
-                            remaining = daily_need - total_calories
-                            reply_text += f"\n还可以摄入：{remaining:.1f}千卡"
+                reply_text = self.health_service.get_user_today_food_report(wx_id=user_id, nickname=nickname)
 
                 reply = Reply(ReplyType.TEXT, reply_text)
                 e_context["reply"] = reply
 
-            conn.close()
             e_context.action = EventAction.BREAK_PASS
 
         except Exception as e:
             logger.error(f"[food_calorie] Error querying calories: {e}")
             reply = Reply(ReplyType.TEXT, "查询失败，请稍后重试")
             e_context["reply"] = reply
-            if 'conn' in locals():
-                conn.close()
             e_context.action = EventAction.BREAK_PASS
 
     def on_handle_context(self, e_context: EventContext):
@@ -527,8 +386,8 @@ class food_calorie(Plugin):
                 return self.handle_user_info(e_context)
             elif content == "今日卡路里" or content == "今日热量":
                 return self.handle_calorie_query(e_context)
-            elif content.startswith("记录热量"):
-                return self.handle_calorie_confirm(e_context)
+            elif content.startswith("记录运动"):
+                return self.handle_exercise_info(e_context)
 
         # 处理收藏命令
         if context.type == ContextType.TEXT and context.content.strip() == "收藏":
