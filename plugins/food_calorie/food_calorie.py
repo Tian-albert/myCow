@@ -140,12 +140,13 @@ class food_calorie(Plugin):
                 res = self.health_service.save_user_info(wx_id=user_id, nickname=nickname, content=content)
                 if res:
                     user = self.health_service.get_user_info(wx_id=user_id)
+                    gender = "男" if user.gender == 1 else "女"
                     reply = Reply(ReplyType.TEXT,
                                   f"已更新您的个人信息：\n"
                                   f"身高：{user.height}cm\n"
                                   f"体重：{user.weight}kg\n"
                                   f"年龄：{user.age}岁\n"
-                                  f"性别：{user.gender}\n"
+                                  f"性别：{gender}\n"
                                   f"活动水平：{user.activity_level}\n"
                                   )
                     e_context["reply"] = reply
@@ -258,7 +259,7 @@ class food_calorie(Plugin):
                     reply_text = f"已记录运动：\n" \
                                  f"运动名称：{exercise.exercise_name}\n" \
                                  f"消耗热量：{exercise.burned_calories}千卡\n" \
-                                 f"记录时间：{exercise.record_time}"""
+                                 f"记录时间：{exercise.exercise_time}"""
                 else:
                     reply_text = "记录失败，请使用正确的格式：\n" \
                                  "记录运动 运动名称 消耗多少千卡\n" \
@@ -269,7 +270,7 @@ class food_calorie(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         except Exception as e:
-            logger.error(f"[food_calorie] Error confirming calories: {e}")
+            logger.error(f"[food_calorie] 记录运动数据失败: {e}")
             reply = Reply(ReplyType.TEXT,
                           "记录失败，请使用正确的格式：\n"
                           "记录运动 运动名称 消耗多少千卡\n"
