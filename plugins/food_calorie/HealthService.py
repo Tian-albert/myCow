@@ -1,6 +1,5 @@
 import re
-from model import *
-from dao import *
+from .dao import *
 from common.log import logger
 
 

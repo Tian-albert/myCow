@@ -1,6 +1,6 @@
 # dao.py
 
-from model import *
+from .model import *
 import sqlite3
 import os
 from datetime import datetime

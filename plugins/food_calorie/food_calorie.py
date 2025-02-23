@@ -9,7 +9,6 @@ from common import memory
 import xml.etree.ElementTree as ET
 
 from bridge.reply import Reply, ReplyType
-import re
 import json
 from blueprints.plugins import voice_manager
 import os
@@ -17,8 +16,7 @@ import requests
 from datetime import datetime
 from models import db_session, ImageMessage
 import hashlib
-import sqlite3
-from HealthService import HealthService
+from .HealthService import HealthService
 
 config = conf()
 channel_name = conf().get("channel_type", "wx")
