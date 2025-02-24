@@ -1,4 +1,5 @@
 # encoding:utf-8
+import uuid
 
 import plugins
 from bridge.context import ContextType
@@ -17,6 +18,7 @@ from datetime import datetime
 from models import db_session, ImageMessage
 import hashlib
 from .HealthService import HealthService
+from qcloud_cos import CosConfig, CosS3Client
 
 config = conf()
 channel_name = conf().get("channel_type", "wx")
@@ -58,6 +60,11 @@ class food_calorie(Plugin):
 
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             self.handlers[Event.ON_DECORATE_REPLY] = self.on_decorate_reply
+
+            # 初始化腾讯云 COS 客户端
+            self.cos_config = conf.get("cos", {})
+            self.cos_client = self.init_cos_client() if self.cos_config else None
+
             self.corp_id = conf.get("wechatcom_corp_id", {}).get("value", "")
             self.secret = conf.get("wechatcomapp_secret", {}).get("value", "")
             self.forward_gh = conf.get("要转发的人", {}).get("value", "")
@@ -65,8 +72,14 @@ class food_calorie(Plugin):
             logger.info("[food_calorie] inited.")
 
             # 创建保存目录
-            self.emoji_dir = os.path.join("pic", "emoji")
-            self.image_dir = os.path.join("pic", "picture")
+            # 获取当前脚本（food_calorie.py）所在目录的绝对路径
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+            # 定义图片存储路径，相对于 food_calorie.py
+            self.image_dir = os.path.join(BASE_DIR, "pic", "picture")
+            self.emoji_dir = os.path.join(BASE_DIR, "pic", "emoji")
+
+            # 确保目录存在
             os.makedirs(self.emoji_dir, exist_ok=True)
             os.makedirs(self.image_dir, exist_ok=True)
 
@@ -76,6 +89,19 @@ class food_calorie(Plugin):
         except Exception as e:
             logger.warn("[food_calorie] init failed.")
             raise e
+
+    def init_cos_client(self):
+        """初始化腾讯云 COS 客户端"""
+        try:
+            config = CosConfig(
+                Region=self.cos_config.get("region"),
+                SecretId=self.cos_config.get("secret_id"),
+                SecretKey=self.cos_config.get("secret_key")
+            )
+            return CosS3Client(config)
+        except Exception as e:
+            logger.error(f"初始化 COS 客户端失败: {str(e)}")
+            return None
 
     def save_image(self, image_data, chat_id, uploader_nickname, img_url=None):
         """保存图片到本地并更新数据库"""
@@ -487,7 +513,7 @@ class food_calorie(Plugin):
                 raise Exception("获取图片链接超时")
 
             # 保存文件
-            file_path = None
+            file_path = None  # 图片的本地路径
             if msg_type == self.MSG_TYPE_EMOJI:
                 pass
             else:
@@ -498,28 +524,37 @@ class food_calorie(Plugin):
             if not file_path:
                 raise Exception("保存文件失败")
 
-            # 获取用户信息
+            # 获取用户信息，生成提示词
             user_id = msg.from_user_id
             prompt = self.user_info_prompt(user_id)
 
-            image_url_local = get_image_url(file_path)
-            image_url_local = image_url_local.replace("\\", "/")
-            logger.info(f"要发送的图片 {image_url_local}")
             # 设置context用于识别
             logger.info(f"Prompt: {prompt}")
             e_context["context"].type = ContextType.TEXT
             e_context["context"].content = prompt
-            image_url = result.image
-            if image_url:
-                if image_url.endswith("\\") or image_url.endswith("/"):
-                    image_url = image_url[:-1]
+
+            # 保存到腾讯云
+            url = self.upload_to_cos(file_path)
+            logger.info(f"[food_calorie] Uploaded image to COS: {url}")
+
+            # image_url_local = get_image_url(file_path)
+            # image_url_local = image_url_local.replace("\\", "/")
+            # logger.info(f"要发送的图片 {image_url_local}")
+
+
+            # image_url = result.image
+            # if image_url:
+            #     if image_url.endswith("\\") or image_url.endswith("/"):
+            #         image_url = image_url[:-1]
+
             if not hasattr(e_context["context"], "kwargs"):
                 e_context["context"].kwargs = {}
             e_context["context"].kwargs.update({
-                "image_url": image_url_local,  #image_url,
+                "image_url": url,  # 目前是使用COS的链接  # image_url_local,本地的照片链接  #image_url,转发后微信的图片链接
                 "image_recognition": True,
                 "file_path": file_path,
-                "msg_type": msg_type
+                "msg_type": msg_type,
+                "url": url
             })
             e_context.action = EventAction.BREAK
         except Exception as e:
@@ -538,6 +573,7 @@ class food_calorie(Plugin):
         if context.get("image_recognition"):
             file_path = context.kwargs.get("file_path")
             msg_type = context.kwargs.get("msg_type")
+            url = context.kwargs.get("url")
             if file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
                 self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"))
 
@@ -579,6 +615,37 @@ class food_calorie(Plugin):
         else:
             prompt = base_prompt + "\n请给出健康饮食建议。"
         return prompt
+
+    def upload_to_cos(self, file_path):
+        """上传文件到 COS 并返回可访问的 URL"""
+        try:
+            if not self.cos_client:
+                logger.error("[Sum4all] COS 客户端未初始化")
+                return None
+
+            # 生成唯一的文件名
+            file_ext = os.path.splitext(file_path)[1]
+            key = f"videos/{str(uuid.uuid4())}{file_ext}"
+
+            # 上传文件
+            self.cos_client.upload_file(
+                Bucket=self.cos_config.get("bucket"),
+                LocalFilePath=file_path,
+                Key=key
+            )
+
+            # 生成预签名URL
+            url = self.cos_client.get_presigned_url(
+                Method='GET',
+                Bucket=self.cos_config.get("bucket"),
+                Key=key,
+                Expired=self.cos_config.get("url_expire", 3600)
+            )
+
+            return url
+        except Exception as e:
+            logger.error(f"[Sum4all] 上传文件到 COS 失败: {str(e)}")
+            return None
 
 
 def get_image_url(image_name):
