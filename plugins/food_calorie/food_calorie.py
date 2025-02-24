@@ -314,6 +314,8 @@ class food_calorie(Plugin):
                 return self.handle_calorie_query(e_context)
             elif content.startswith("记录运动"):
                 return self.handle_exercise_info(e_context)
+            elif content in ["帮助", "HELP", "help", "指南", "使用说明"]:
+                return self._handle_help_command(e_context)
 
         # 处理识别热量命令——识别历史消息中最近的一张图片
         if context.type == ContextType.TEXT and context.content.strip() == "识别热量":
@@ -539,7 +541,7 @@ class food_calorie(Plugin):
             if file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
                 self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"))
 
-    def get_help_text(self, **kwargs):
+    def get_help_text(self, **kwargs):  # 此命令不仅在内部调用，还接受外部调用
         help_text = (
             "1. 发送\"识别热量\"并引用一张图片即可识别图片中食物的热量\n"
             "2. 发送\"识别热量\"可以识别最近的一张图片中食物的热量（必须是最近的消息且消息是图片）\n"
@@ -549,7 +551,14 @@ class food_calorie(Plugin):
         )
         return help_text
 
-    def user_info_prompt(self, wx_id):
+    def _handle_help_command(self, e_context: EventContext):
+        """处理帮助命令"""
+        help_text = self.get_help_text()
+        reply = Reply(ReplyType.TEXT, help_text)
+        e_context["reply"] = reply
+        e_context.action = EventAction.BREAK_PASS
+
+    def user_info_prompt(self, wx_id):  # 根据用户的个人信息构建提示词
         prompt = ""
         user_info = self.health_service.get_user_info(wx_id=wx_id)
         # 构建提示词
