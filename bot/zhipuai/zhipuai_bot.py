@@ -201,7 +201,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             reply = None
             
             # 处理特殊命令
-            clear_memory_commands = conf().get("clear_memory_commands", ["#清除记忆"])
+            clear_memory_commands = conf().get("clear_memory_commands", ["#清除记忆", "开启新会话"])
             if query in clear_memory_commands:
                 self.sessions.clear_session(session_id)
                 reply = Reply(ReplyType.INFO, "记忆已清除")
