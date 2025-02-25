@@ -72,10 +72,14 @@ class food_calorie(Plugin):
             logger.info("[food_calorie] inited.")
 
             # 创建保存目录
-            # 获取当前脚本（food_calorie.py）所在目录的绝对路径
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            # 获取当前脚本的绝对路径
+            current_file_path = os.path.abspath(__file__)
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
+            # 计算相对于项目根目录的路径，然后去掉文件名
+            BASE_DIR = os.path.dirname(os.path.relpath(current_file_path, project_root))
 
-            # 定义图片存储路径，相对于 food_calorie.py
+            # 定义图片存储路径
             self.image_dir = os.path.join(BASE_DIR, "pic", "picture")
             self.emoji_dir = os.path.join(BASE_DIR, "pic", "emoji")
 
@@ -96,7 +100,8 @@ class food_calorie(Plugin):
             config = CosConfig(
                 Region=self.cos_config.get("region"),
                 SecretId=self.cos_config.get("secret_id"),
-                SecretKey=self.cos_config.get("secret_key")
+                SecretKey=self.cos_config.get("secret_key"),
+                Scheme='http'  # 指定使用 http 协议来访问 COS，默认为 https.智谱识别图片目前只支持http协议
             )
             return CosS3Client(config)
         except Exception as e:
@@ -422,16 +427,23 @@ class food_calorie(Plugin):
             user_id = msg.from_user_id
             prompt = self.user_info_prompt(user_id)
 
-            image_url_local = get_image_url(file_path)
-            image_url_local = image_url_local.replace("\\", "/")
-            logger.info(f"要发送的图片 {image_url_local}")
+            # image_url_local = get_image_url(file_path)
+            # image_url_local = image_url_local.replace("\\", "/")
+            # logger.info(f"要发送的图片 {image_url_local}")
+
+            # 保存到腾讯云
+            url = self.upload_to_cos(file_path)
+            logger.info(f"[food_calorie] Uploaded image to Cos: {url}")
+
             # 设置context用于识别
             e_context["context"].type = ContextType.TEXT
             e_context["context"].content = prompt
+            logger.info(f"Prompt: {prompt}")
+
             if not hasattr(e_context["context"], "kwargs"):
                 e_context["context"].kwargs = {}
             e_context["context"].kwargs.update({
-                "image_url": image_url_local,  #result.image,
+                "image_url": url,  # image_url_local,  #result.image,
                 "image_recognition": True,
                 "file_path": file_path,
                 "msg_type": msg_type
@@ -553,8 +565,7 @@ class food_calorie(Plugin):
                 "image_url": url,  # 目前是使用COS的链接  # image_url_local,本地的照片链接  #image_url,转发后微信的图片链接
                 "image_recognition": True,
                 "file_path": file_path,
-                "msg_type": msg_type,
-                "url": url
+                "msg_type": msg_type
             })
             e_context.action = EventAction.BREAK
         except Exception as e:
@@ -573,7 +584,6 @@ class food_calorie(Plugin):
         if context.get("image_recognition"):
             file_path = context.kwargs.get("file_path")
             msg_type = context.kwargs.get("msg_type")
-            url = context.kwargs.get("url")
             if file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
                 self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"))
 
@@ -625,7 +635,7 @@ class food_calorie(Plugin):
 
             # 生成唯一的文件名
             file_ext = os.path.splitext(file_path)[1]
-            key = f"videos/{str(uuid.uuid4())}{file_ext}"
+            key = f"pictures/{str(uuid.uuid4())}{file_ext}"
 
             # 上传文件
             self.cos_client.upload_file(
@@ -634,12 +644,18 @@ class food_calorie(Plugin):
                 Key=key
             )
 
-            # 生成预签名URL
-            url = self.cos_client.get_presigned_url(
-                Method='GET',
-                Bucket=self.cos_config.get("bucket"),
-                Key=key,
-                Expired=self.cos_config.get("url_expire", 3600)
+            # 生成预签名URL(这个方法获取的URL智谱无法识别)
+            # url = self.cos_client.get_presigned_url(
+            #     Method='GET',
+            #     Bucket=self.cos_config.get("bucket"),
+            #     Key=key,
+            #     Expired=self.cos_config.get("url_expire", 3600)
+            # )
+
+            # 这个方法获取的URL智谱可以识别
+            url = self.cos_client.get_object_url(
+                Bucket='weixinzhushou-1307794001',
+                Key='videos/6e9e749b-0714-4dbd-b48a-33524b72a785.jpg'
             )
 
             return url

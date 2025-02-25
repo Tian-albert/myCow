@@ -133,10 +133,23 @@ class MyTestCase(unittest.TestCase):
         # print(os.path.dirname(__file__))
         # print(os.path.join(os.path.dirname(__file__), "pic"))
 
-        directory = "pic/picture/untitled-1.bash"  # 目录名称（可以是相对路径）
-        absolute_path = os.path.abspath(directory)
+        # directory = "pic/picture/untitled-1.bash"  # 目录名称（可以是相对路径）
+        # absolute_path = os.path.abspath(directory)
+        #
+        # print(f"'{directory}' 的绝对路径是: {absolute_path}")
 
-        print(f"'{directory}' 的绝对路径是: {absolute_path}")
+        # 获取当前脚本的绝对路径
+        current_file_path = os.path.abspath(__file__)
+
+        # 获取项目根目录（假设 main.py 在项目根目录）
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
+
+        # 计算相对于项目根目录的路径
+        relative_path = os.path.dirname(os.path.relpath(current_file_path, project_root))
+
+        print(f"当前文件绝对路径: {current_file_path}")
+        print(f"项目根目录: {project_root}")
+        print(f"相对路径: {relative_path}")
 
 
 if __name__ == '__main__':
