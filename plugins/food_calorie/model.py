@@ -58,33 +58,35 @@ class User:
         )
 
 
-
 class FoodRecord:
     def __init__(self,
                  food_record_id: int = None,
                  user_id: int = None,
                  total_calories: float = 0.0,
-                 record_time: str = None):
+                 record_time: str = None,
+                 img_path: str = None):
         """
         :param food_record_id: 主键，自增
         :param user_id: 关联 user 表的ID
         :param total_calories: 该记录时段内的总热量
         :param record_time: 记录时间，字符串格式如 '2025-02-20 10:30:00'
+        :param img_path: 该记录相关的图片路径
         """
         self.food_record_id = food_record_id
         self.user_id = user_id
         self.total_calories = total_calories
         self.record_time = record_time
+        self.img_path = img_path
 
     def __repr__(self):
         return (f"<FoodRecord food_record_id={self.food_record_id}, user_id={self.user_id}, "
-                f"total_calories={self.total_calories}, record_time={self.record_time}>")
+                f"total_calories={self.total_calories}, record_time={self.record_time}, img_path={self.img_path}>")
 
     @classmethod
     def from_row(cls, row: tuple):
         """
         根据数据库返回的tuple行构造FoodRecord对象。
-        e.g. SELECT food_record_id, user_id, total_calories, record_time
+        e.g. SELECT food_record_id, user_id, total_calories, record_time, img_path
         """
         if not row:
             return None
@@ -93,6 +95,7 @@ class FoodRecord:
             user_id=row[1],
             total_calories=row[2],
             record_time=row[3],
+            img_path=row[4]
         )
 
 

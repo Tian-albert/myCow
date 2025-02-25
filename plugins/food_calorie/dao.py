@@ -89,12 +89,19 @@ class DBManager:
             ''')
 
             # 检查新增列是否存在
+            # 检查user表
             cursor.execute("PRAGMA table_info(user)")
             columns = [column[1] for column in cursor.fetchall()]
             if 'age' not in columns:
                 cursor.execute('ALTER TABLE user ADD COLUMN age INTEGER DEFAULT 22')
             if 'activity_level' not in columns:
-                cursor.execute('ALTER TABLE user ADD COLUMN activity_level TEXT DEFAULT "轻度活动"')
+                cursor.execute('ALTER TABLE user ADD COLUMN activity_level TEXT')
+
+            # 检查food_record表
+            cursor.execute("PRAGMA table_info(food_record)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'img_path' not in columns:
+                cursor.execute('ALTER TABLE food_record ADD COLUMN img_path TEXT')
 
             conn.commit()
             conn.close()
@@ -503,11 +510,12 @@ class FoodRecordDAO:
     def __init__(self):
         self.db_manager = DBManager()
 
-    def insert_record(self, user_id: int, total_calories: float = 0.0,
+    def insert_record(self, user_id: int, img_path: str, total_calories: float = 0.0,
                       record_time: str = None) -> int:
         """
         向 food_record 表插入一条记录，并返回新插入记录的 food_record_id
         :param user_id: user表的主键ID
+        :param img_path:
         :param total_calories: 当时记录的总热量
         :param record_time: 如果为None，可用默认CURRENT_TIMESTAMP
         """
@@ -519,16 +527,16 @@ class FoodRecordDAO:
             if record_time is None:
                 # 直接在 SQL 里使用CURRENT_TIMESTAMP
                 sql = """
-                    INSERT INTO food_record (user_id, total_calories)
-                    VALUES (?, ?)
-                """
-                cur.execute(sql, (user_id, total_calories))
-            else:
-                sql = """
-                    INSERT INTO food_record (user_id, total_calories, record_time)
+                    INSERT INTO food_record (user_id, total_calories, img_path)
                     VALUES (?, ?, ?)
                 """
-                cur.execute(sql, (user_id, total_calories, record_time))
+                cur.execute(sql, (user_id, total_calories, img_path))
+            else:
+                sql = """
+                    INSERT INTO food_record (user_id, total_calories, record_time, img_path)
+                    VALUES (?, ?, ?, ?)
+                """
+                cur.execute(sql, (user_id, total_calories, record_time, img_path))
 
             new_record_id = cur.lastrowid
 
@@ -577,7 +585,7 @@ class FoodRecordDAO:
             cur = conn.cursor()
 
             sql = """
-                SELECT food_record_id, user_id, total_calories, record_time
+                SELECT food_record_id, user_id, total_calories, record_time, img_path
                 FROM food_record
                 WHERE food_record_id = ?
             """
@@ -604,7 +612,7 @@ class FoodRecordDAO:
 
             if date_str:
                 sql = """
-                    SELECT food_record_id, user_id, total_calories, record_time
+                    SELECT food_record_id, user_id, total_calories, record_time, img_path
                     FROM food_record
                     WHERE user_id = ?
                       AND DATE(record_time) = DATE(?)
@@ -613,7 +621,7 @@ class FoodRecordDAO:
                 cur.execute(sql, (user_id, date_str))
             else:
                 sql = """
-                    SELECT food_record_id, user_id, total_calories, record_time
+                    SELECT food_record_id, user_id, total_calories, record_time, img_path
                     FROM food_record
                     WHERE user_id = ?
                     ORDER BY record_time DESC

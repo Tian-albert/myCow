@@ -143,7 +143,7 @@ class food_calorie(Plugin):
             db_session.rollback()
             return None
 
-    def update_food_record(self, reply_content, context, is_emoji=False):
+    def update_food_record(self, reply_content, context, is_emoji=False, img_path=None):
         """更新食物记录"""
         if '无法直接' in reply_content or '没有实际' in reply_content:
             logger.warning(f"[food_calorie] 无法识别: {reply_content}")
@@ -156,7 +156,7 @@ class food_calorie(Plugin):
             msg = context["msg"]
             user_id = msg.from_user_id
             nickname = msg.from_user_nickname
-            self.health_service.save_food_record(wx_id=user_id, content=reply_content, nickname=nickname)
+            self.health_service.save_food_record(wx_id=user_id, content=reply_content, nickname=nickname, img_path=img_path)
             logger.info(f"[food_calorie] 所有食物记录保存完成")
         except Exception as e:
             logger.error(f"[food_calorie] 更新食物记录时发生错误: {e}")
@@ -433,9 +433,9 @@ class food_calorie(Plugin):
             user_id = msg.from_user_id
             prompt = self.user_info_prompt(user_id)
 
-            # image_url_local = get_image_url(file_path)
-            # image_url_local = image_url_local.replace("\\", "/")
-            # logger.info(f"要发送的图片 {image_url_local}")
+            image_url_local = get_image_url(file_path)
+            image_url_local = image_url_local.replace("\\", "/")
+            logger.info(f"图片本地url——保存至数据库 {image_url_local}")
 
             # 保存到腾讯云
             url = self.upload_to_cos(file_path)
@@ -452,7 +452,8 @@ class food_calorie(Plugin):
                 "image_url": url,  # image_url_local,  #result.image,
                 "image_recognition": True,
                 "file_path": file_path,
-                "msg_type": msg_type
+                "msg_type": msg_type,
+                "img_path": image_url_local,
             })
             e_context.action = EventAction.BREAK
 
@@ -555,10 +556,9 @@ class food_calorie(Plugin):
             url = self.upload_to_cos(file_path)
             logger.info(f"[food_calorie] Uploaded image to COS: {url}")
 
-            # image_url_local = get_image_url(file_path)
-            # image_url_local = image_url_local.replace("\\", "/")
-            # logger.info(f"要发送的图片 {image_url_local}")
-
+            image_url_local = get_image_url(file_path)
+            image_url_local = image_url_local.replace("\\", "/")
+            logger.info(f"图片本地url——保存至数据库 {image_url_local}")
 
             # image_url = result.image
             # if image_url:
@@ -571,7 +571,8 @@ class food_calorie(Plugin):
                 "image_url": url,  # 目前是使用COS的链接  # image_url_local,本地的照片链接  #image_url,转发后微信的图片链接
                 "image_recognition": True,
                 "file_path": file_path,
-                "msg_type": msg_type
+                "msg_type": msg_type,
+                "img_path": image_url_local
             })
             e_context.action = EventAction.BREAK
         except Exception as e:
@@ -590,8 +591,9 @@ class food_calorie(Plugin):
         if context.get("image_recognition"):
             file_path = context.kwargs.get("file_path")
             msg_type = context.kwargs.get("msg_type")
-            if file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
-                self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"))
+            img_path = context.kwargs.get("image_path")
+            if img_path and file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
+                self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"), img_path=img_path)
 
     def get_help_text(self, **kwargs):  # 此命令不仅在内部调用，还接受外部调用
         help_text = (
@@ -600,6 +602,7 @@ class food_calorie(Plugin):
             "3. 发送\"设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动\"记录个人信息\n\n"
             "4. 发送\"记录运动 跑步 消耗150千卡\"可以记录运动信息\n\n"
             "5. 发送\"今日卡路里\\今日热量\"查看今日饮食记录、运动记录和热量统计\n\n"
+            "6. 发送\"开启新会话\"可以重新进入一个新会话\n\n"
             "活动水平有以下五种：\n"
             "久坐不动（几乎不运动)\n"
             "轻度活动（轻度运动或运动1-3天/周）\n"
@@ -687,5 +690,5 @@ def get_image_url(image_name):
     result = "/".join(parts[:-1])
 
     result = f"{result}/{image_name}"
-    logger.info(f"要发送的图片 {result}")
+    logger.info(f"图片的本地url {result}")
     return result

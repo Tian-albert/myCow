@@ -10,7 +10,7 @@ class HealthService:
         self.food_dao = FoodDAO()
         self.exercise_dao = ExerciseDAO()
 
-    def save_food_record(self, wx_id, nickname, content):
+    def save_food_record(self, wx_id, nickname, content, img_path=None):
         """
         根据大模型返回的内容提取食物记录并保存到数据库中。
         """
@@ -22,7 +22,7 @@ class HealthService:
             return None
 
         # 根据食物和热量保存食物记录
-        food_record_id = self._save_food_record_in_db(wx_id, nickname, total_calories, content)
+        food_record_id = self._save_food_record_in_db(wx_id, nickname, total_calories, content, img_path)
 
         return food_record_id
 
@@ -42,7 +42,7 @@ class HealthService:
             return float(match.group(1))
         return 0.0
 
-    def _save_food_record_in_db(self, wx_id, nickname, total_calories, content):
+    def _save_food_record_in_db(self, wx_id, nickname, total_calories, content, img_path=None):
         """
         将食物记录保存到food_record表，并将食物名称和热量保存到food表中。
         """
@@ -62,7 +62,7 @@ class HealthService:
             return None
 
         # 保存食物记录到 food_record 表
-        food_record_id = self.food_record_dao.insert_record(user.user_id, total_calories)
+        food_record_id = self.food_record_dao.insert_record(user_id=user.user_id, img_path=img_path, total_calories=total_calories)
         logger.info(f"保存食物记录到 food_record 表，food_record_id: {food_record_id}")
 
         # 提取食物信息并保存到 food 表
@@ -126,7 +126,8 @@ class HealthService:
                     record_total += food.calories
                     report += f"- {food.food_name}: {food.calories}千卡\n"
                 total_calories += record_total
-                report += f"总热量：{record_total}千卡\n\n"  # 空行隔开每条记录
+                report += f"总热量：{record_total}千卡\n"  # 空行隔开每条记录
+                report += f"图片：{record.img_path}\n\n"  # 空行隔开每条记录
 
         # 获取用户今日运动消耗的热量
         # 获取当天所有运动记录
