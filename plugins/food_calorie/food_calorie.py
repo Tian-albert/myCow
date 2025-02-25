@@ -73,8 +73,6 @@ class food_calorie(Plugin):
             self.cos_config = conf.get("cos", {})
             self.cos_client = self.init_cos_client() if self.cos_config else None
 
-            self.corp_id = conf.get("wechatcom_corp_id", {}).get("value", "")
-            self.secret = conf.get("wechatcomapp_secret", {}).get("value", "")
             self.forward_gh = conf.get("要转发的人", {}).get("value", "")
             self.bot = iPadWx()
             logger.info("[food_calorie] inited.")
