@@ -358,6 +358,16 @@ async def serve_pic(filename):
         return await send_file('404.html'), 404
 
 
+@quart_app.route('/plugins/food_calorie/pic/<path:filename>')
+async def serve_food_calorie_pic(filename):
+    file_path = os.path.join('plugins', 'food_calorie', 'pic', filename)
+
+    if os.path.isfile(file_path):
+        return await send_file(file_path)
+    else:
+        return await send_file('404.html'), 404
+
+
 def callback(worker):
     worker_exception = worker.exception()
     if worker_exception:

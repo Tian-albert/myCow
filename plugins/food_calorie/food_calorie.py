@@ -33,7 +33,7 @@ elif channel_name == 'wx-beta':
     desire_priority=900,
     desc="图片食物识别，记录卡路里",
     version="0.1",
-    author="",
+    author="Albert",
 )
 class food_calorie(Plugin):
     def __init__(self):
@@ -48,10 +48,18 @@ class food_calorie(Plugin):
             if not os.path.exists(config_path):
                 logger.debug(f"[food_calorie]不存在配置文件{config_path}")
                 conf = {
-                    "corp_id": {"value": ""},
-                    "secret": {"value": ""},
-                    "forward_gh": {"value": ""}  # 企业微信公众号ID
-                }
+                            "要转发的人": {
+                                "value": "gh_9c8028638be0",
+                                "description": "企业客服号3"
+                            },
+                            "cos": {
+                                "secret_id": "",
+                                "secret_key": "r",
+                                "region": "",
+                                "bucket": "",
+                                "url_expire": 259200
+                            }
+                        }
                 with open(config_path, "w", encoding="utf-8") as f:
                     json.dump(conf, f, indent=4)
             else:
