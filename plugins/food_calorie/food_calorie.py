@@ -591,7 +591,7 @@ class food_calorie(Plugin):
         if context.get("image_recognition"):
             file_path = context.kwargs.get("file_path")
             msg_type = context.kwargs.get("msg_type")
-            img_path = context.kwargs.get("image_path")
+            img_path = context.kwargs.get("img_path")
             if img_path and file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
                 self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"), img_path=img_path)
 
@@ -634,7 +634,7 @@ class food_calorie(Plugin):
 
             prompt = (
                 f"{base_prompt}\n"
-                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}，活动水平是{activity_level}"
+                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}，活动水平是{activity_level}。"
                 f"请根据我的身体状况给出个性化的饮食建议。"
             )
         else:

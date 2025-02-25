@@ -27,7 +27,7 @@ class DBManager:
         # 如果不传db_path，就使用默认路径
         if db_path is None:
             cur_dir = os.path.dirname(__file__)
-            db_path = os.path.join(cur_dir, "food_calories.db")
+            db_path = os.path.join(cur_dir, "food_calorie.db")
 
         self.db_path = db_path
         logger.info(f"[DBManager] 使用的数据库文件: {self.db_path}")

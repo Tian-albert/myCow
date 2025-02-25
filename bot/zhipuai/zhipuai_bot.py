@@ -203,8 +203,13 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             # 处理特殊命令
             clear_memory_commands = conf().get("clear_memory_commands", ["#清除记忆", "开启新会话"])
             if query in clear_memory_commands:
+                # 获取会话
+                session = self.sessions.session_query(query, session_id)
+                if session:
+                    # 删除conversation_id
+                    session.delete_conversation()
                 self.sessions.clear_session(session_id)
-                reply = Reply(ReplyType.INFO, "记忆已清除")
+                reply = Reply(ReplyType.TEXT, "已开启新会话！")
                 return reply
             
             # 获取会话

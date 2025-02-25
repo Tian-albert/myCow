@@ -32,6 +32,36 @@ class ZhipuAISession(Session):
         # 尝试加载已存在的会话ID
         self.load_conversation()
 
+    def delete_conversation(self):
+        """删除文件中的会话id"""
+        if not self.user_id or not self.conversation_id:
+            return
+
+        try:
+            # 确保目录存在
+            os.makedirs('sessions', exist_ok=True)
+
+            # 加载现有数据
+            data = {}
+            if os.path.exists('sessions/zhipuai_sessions.json'):
+                with open('sessions/zhipuai_sessions.json', 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+            # 更新数据
+            data[self.user_id] = {
+                'conversation_id': "",
+                'model': self.model,
+                'session_id': self.session_id
+            }
+
+            # 保存数据
+            with open('sessions/zhipuai_sessions.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+
+            logger.debug(f"[ZHIPUAI] Saved conversation_id for user {self.user_id}")
+        except Exception as e:
+            logger.error(f"[ZHIPUAI] Failed to save conversation: {e}")
+
     def save_conversation(self):
         """保存会话ID到文件"""
         if not self.user_id or not self.conversation_id:
