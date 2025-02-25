@@ -654,8 +654,8 @@ class food_calorie(Plugin):
 
             # 这个方法获取的URL智谱可以识别
             url = self.cos_client.get_object_url(
-                Bucket='weixinzhushou-1307794001',
-                Key='videos/6e9e749b-0714-4dbd-b48a-33524b72a785.jpg'
+                Bucket=self.cos_config.get("bucket"),
+                Key=key
             )
 
             return url
