@@ -624,7 +624,7 @@ class food_calorie(Plugin):
         user_info = self.health_service.get_user_info(wx_id=wx_id)
         # 构建提示词
         base_prompt = "图片中是我当前的饮食，识别这张图片中的食物，列出每种食物的卡路里含量，并计算总热量。\n"
-        if user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
+        if user_info and user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
             height = user_info.height
             weight = user_info.weight
             gender = "男" if user_info.gender == 1 else "女"
