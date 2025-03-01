@@ -201,10 +201,8 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             
             # 处理特殊命令
             clear_memory_commands = conf().get("clear_memory_commands", ["#清除记忆", "开启新会话"])
-            create_new_session = False
+
             if query in clear_memory_commands:
-                create_new_session = True
-                logger.info(f"[ZHIPUAI] create_new_session = {create_new_session}")
                 # 获取会话
                 session = self.sessions.session_query(query, session_id)
                 user_id = context["msg"].from_user_id
@@ -222,7 +220,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             session = self.sessions.session_query(query, session_id)
             
             # 获取回复
-            reply_content = self.reply_text(session, context, 0, create_new_session)
+            reply_content = self.reply_text(session, context)
             
             # 处理响应
             if reply_content["completion_tokens"] == 0 and len(reply_content["content"]) > 0:
