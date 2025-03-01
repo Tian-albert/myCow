@@ -58,7 +58,7 @@ class ZhipuAISession(Session):
             with open('sessions/zhipuai_sessions.json', 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
 
-            logger.debug(f"[ZHIPUAI] delete conversation_id for user {self.user_id}")
+            logger.info(f"[ZHIPUAI] delete conversation_id for user {self.user_id}")
         except Exception as e:
             logger.error(f"[ZHIPUAI] Failed to delete conversation: {e}")
 

@@ -87,7 +87,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             logger.error(f"[ZHIPUAI] Check file status error: {e}")
             return False
 
-    def reply_text(self, session: ZhipuAISession, context=None, retry_count=0) -> dict:
+    def reply_text(self, session: ZhipuAISession, context=None, retry_count=0, create_new_session=False) -> dict:
         """使用智谱AI智能体API发送请求"""
         try:
             # 设置用户ID
@@ -96,7 +96,6 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                 session.set_user_id(user_id)
 
             # 如果没有会话ID，创建新会话
-            create_new_session = False
             if not session.conversation_id or create_new_session:
                 response = self._http_request(
                     "POST",
@@ -202,21 +201,26 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             
             # 处理特殊命令
             clear_memory_commands = conf().get("clear_memory_commands", ["#清除记忆", "开启新会话"])
+            create_new_session = False
             if query in clear_memory_commands:
+                create_new_session = True
+                logger.info(f"[ZHIPUAI] create_new_session = {create_new_session}")
                 # 获取会话
                 session = self.sessions.session_query(query, session_id)
                 if session:
                     # 删除conversation_id
+                    logger.info(f"[ZHIPUAI] session={session}")
                     session.delete_conversation()
                 self.sessions.clear_session(session_id)
                 reply = Reply(ReplyType.TEXT, "已开启新会话！")
+                logger.info("[ZHIPUAI] 已开启新会话")
                 return reply
             
             # 获取会话
             session = self.sessions.session_query(query, session_id)
             
             # 获取回复
-            reply_content = self.reply_text(session, context)
+            reply_content = self.reply_text(session, context, 0, create_new_session)
             
             # 处理响应
             if reply_content["completion_tokens"] == 0 and len(reply_content["content"]) > 0:
