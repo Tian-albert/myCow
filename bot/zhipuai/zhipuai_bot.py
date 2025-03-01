@@ -87,7 +87,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             logger.error(f"[ZHIPUAI] Check file status error: {e}")
             return False
 
-    def reply_text(self, session: ZhipuAISession, context=None, retry_count=0, create_new_session=False) -> dict:
+    def reply_text(self, session: ZhipuAISession, context=None, retry_count=0) -> dict:
         """使用智谱AI智能体API发送请求"""
         try:
             # 设置用户ID
@@ -96,7 +96,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                 session.set_user_id(user_id)
 
             # 如果没有会话ID，创建新会话
-            if not session.conversation_id or create_new_session:
+            if not session.conversation_id:
                 response = self._http_request(
                     "POST",
                     f"/v2/application/{self.app_id}/conversation"
@@ -207,6 +207,8 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                 logger.info(f"[ZHIPUAI] create_new_session = {create_new_session}")
                 # 获取会话
                 session = self.sessions.session_query(query, session_id)
+                user_id = context["msg"].from_user_id
+                session.set_user_id(user_id)
                 if session:
                     # 删除conversation_id
                     logger.info(f"[ZHIPUAI] session={session}")
