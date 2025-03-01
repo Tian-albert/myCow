@@ -585,6 +585,10 @@ class food_calorie(Plugin):
     def on_decorate_reply(self, e_context: EventContext):
         """处理回复装饰"""
         context = e_context["context"]
+
+        # 去除所有的 - * #
+        e_context["reply"].content = e_context["reply"].content.replace("-", "").replace("*", "").replace("#", "")
+
         reply = e_context["reply"]
 
         # 检查是否是图片识别请求的回复
@@ -634,7 +638,7 @@ class food_calorie(Plugin):
 
             prompt = (
                 f"{base_prompt}\n"
-                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}，活动水平是{activity_level}。"
+                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁，活动水平是{activity_level}。"
                 f"请根据我的身体状况给出个性化的饮食建议。"
             )
         else:

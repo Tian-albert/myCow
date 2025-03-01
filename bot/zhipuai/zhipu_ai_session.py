@@ -34,7 +34,7 @@ class ZhipuAISession(Session):
 
     def delete_conversation(self):
         """删除文件中的会话id"""
-        if not self.user_id or not self.conversation_id:
+        if not self.user_id:
             return
 
         try:
@@ -58,9 +58,9 @@ class ZhipuAISession(Session):
             with open('sessions/zhipuai_sessions.json', 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
 
-            logger.debug(f"[ZHIPUAI] Saved conversation_id for user {self.user_id}")
+            logger.debug(f"[ZHIPUAI] delete conversation_id for user {self.user_id}")
         except Exception as e:
-            logger.error(f"[ZHIPUAI] Failed to save conversation: {e}")
+            logger.error(f"[ZHIPUAI] Failed to delete conversation: {e}")
 
     def save_conversation(self):
         """保存会话ID到文件"""
