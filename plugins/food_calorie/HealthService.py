@@ -161,15 +161,15 @@ class HealthService:
 
     def _calculate_bmr(self, user):
         """
-        计算用户的基础代谢率（BMR），根据性别、身高和体重使用哈里斯-贝尼迪克特公式
+        使用Mifflin-St Jeor公式计算用户的基础代谢率（BMR）
         如果用户的个人信息不完善，因子为0，系统不会计算用户的每日推荐摄入热量
         """
         if not user.age or not user.gender or not user.height or not user.weight or not user.activity_level:
             return 0.0
         if user.gender == 1:  # 男性
-            return 88.362 + (13.397 * user.weight) + (4.799 * user.height) - (5.677 * user.age)
+            return (10 * user.weight) + (6.25 * user.height) - (5 * user.age) + 5
         elif user.gender == 2:  # 女性
-            return 447.593 + (9.247 * user.weight) + (3.098 * user.height) - (4.330 * user.age)
+            return (10 * user.weight) + (6.25 * user.height) - (5 * user.age) - 161
         else:  # 未知性别
             return 0.0
 
@@ -280,7 +280,7 @@ class HealthService:
             return True
 
         # 1. 使用正则分别提取身高、体重、性别、年龄、活动水平
-        #   假设用户输入格式相对固定，如 "身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动"
+        #   假设用户输入格式相对固定，如 "身高：170cm，体重：66kg，性别：男，年龄：21岁，活动水平：轻度活动"
         height_pattern = r'身高[:：]\s*(\d+)\s*cm'
         weight_pattern = r'体重[:：]\s*(\d+)\s*kg'
         gender_pattern = r'性别[:：]\s*(男|女)'
