@@ -309,7 +309,7 @@ class Summary(Plugin):
             logger.debug("[Summary] on_handle_context. content: %s" % content)
             trigger_prefix = conf().get('plugin_trigger_prefix', "$")
             clist = content.split()
-            if clist[0].startswith(trigger_prefix):
+            if clist and clist[0].startswith(trigger_prefix):
                 limit = 99
                 duration = -1
 
