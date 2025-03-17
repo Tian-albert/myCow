@@ -255,11 +255,13 @@ class WechatMessage(ChatMessage):
             for at_id in self.at_list:
                 at_info = self.get_user(iPadWx.shared_wx_contact_list[self.room_id]["chatRoomMembers"],at_id)
                 if at_info:
+                    # 处理昵称
                     nickname = at_info['nickName']
                     if nickname:
                         pattern = f"@{re.escape(nickname)}(\u2005|\u0020)"
                         subtract_res = re.sub(pattern, r"", subtract_res)
                     displayName = at_info['displayName'] if at_info['displayName'] else ""
+                    # 处理显示名
                     if displayName:
                         pattern = f"@{re.escape(at_info['displayName'])}(\u2005|\u0020)"
                         subtract_res = re.sub(pattern, r"", subtract_res)

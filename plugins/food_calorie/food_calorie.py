@@ -362,6 +362,10 @@ class food_calorie(Plugin):
         if context.type == ContextType.XML:
             return self._handle_recognition_command_reference(e_context)
 
+        # 处理识别热量命令——直接识别用户发送的图片
+        if context.type == ContextType.IMAGE:
+            return self._handle_recognition_image(e_context)
+
         return
 
     def _handle_recognition_command_history(self, e_context: EventContext):
@@ -627,7 +631,7 @@ class food_calorie(Plugin):
         prompt = ""
         user_info = self.health_service.get_user_info(wx_id=wx_id)
         # 构建提示词
-        base_prompt = "图片中是我当前的饮食，识别这张图片中的食物，列出每种食物的卡路里含量，并计算总热量。\n"
+        base_prompt = "这是我当前的饮食，分别列出每种食物的热量（单位：千卡），并计算总热量。\n"
         if user_info and user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
             height = user_info.height
             weight = user_info.weight
@@ -681,6 +685,82 @@ class food_calorie(Plugin):
         except Exception as e:
             logger.error(f"[Sum4all] 上传文件到 COS 失败: {str(e)}")
             return None
+
+    def _handle_recognition_image(self, e_context):
+        context = e_context["context"]
+        msg = context["msg"]
+
+        # 获取用户信息
+        chat_id = msg.other_user_id if msg.is_group else msg.from_user_id
+        uploader_nickname = msg.actual_user_nickname if msg.is_group else msg.from_user_nickname
+
+        # 处理媒体内容
+        content = context.get("content")
+        msg_type = context.get("type")
+
+        try:
+            processed_content, error_msg = self.process_image_content(content)
+            if error_msg:
+                raise Exception(error_msg)
+
+            # 转发图片获取URL
+            voice_manager.start_waiting()
+            ret = self.bot.forward_img(self.forward_gh, processed_content)
+            if not ret:
+                raise Exception("转发图片失败")
+
+            # 等待获取图片链接
+            result = voice_manager.get_result(timeout=15)
+            if not result or not result.image:
+                raise Exception("获取图片链接超时")
+
+            # 保存文件
+            file_path = None
+            if msg_type == self.MSG_TYPE_EMOJI:
+                pass
+            else:
+                response = requests.get(result.image)
+                if response.status_code == 200:
+                    file_path = self.save_image(response.content, chat_id, uploader_nickname, result.image)
+
+            if not file_path:
+                raise Exception("保存文件失败")
+
+            # 获取用户信息
+            user_id = msg.from_user_id
+            prompt = self.user_info_prompt(user_id)
+
+            image_url_local = get_image_url(file_path)
+            image_url_local = image_url_local.replace("\\", "/")
+            logger.info(f"图片本地url——保存至数据库 {image_url_local}")
+
+            # 保存到腾讯云
+            url = self.upload_to_cos(file_path)
+            logger.info(f"[food_calorie] Uploaded image to Cos: {url}")
+
+            # 设置context用于识别
+            e_context["context"].type = ContextType.TEXT
+            e_context["context"].content = prompt
+            logger.info(f"Prompt: {prompt}")
+
+            if not hasattr(e_context["context"], "kwargs"):
+                e_context["context"].kwargs = {}
+            e_context["context"].kwargs.update({
+                "image_url": url,  # image_url_local,  #result.image,
+                "image_recognition": True,
+                "file_path": file_path,
+                "msg_type": msg_type,
+                "img_path": image_url_local,
+            })
+            e_context.action = EventAction.BREAK
+
+        except Exception as e:
+            logger.error(f"[food_calorie] Save command failed: {e}")
+            reply = Reply(ReplyType.TEXT, f"处理失败: {str(e)}")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+
 
 
 def get_image_url(image_name):
