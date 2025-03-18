@@ -631,7 +631,7 @@ class food_calorie(Plugin):
         prompt = ""
         user_info = self.health_service.get_user_info(wx_id=wx_id)
         # 构建提示词
-        base_prompt = "这是我当前的饮食，分别列出每种食物的热量（单位：千卡），并计算总热量。\n"
+        base_prompt = "这是我当前的饮食，请你分别列出每种食物的热量（单位：千卡）。\n"
         if user_info and user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
             height = user_info.height
             weight = user_info.weight
@@ -642,11 +642,11 @@ class food_calorie(Plugin):
 
             prompt = (
                 f"{base_prompt}\n"
-                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁，活动水平是{activity_level}。"
-                f"请根据我的身体状况给出个性化的饮食建议。"
+                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁，活动水平是{activity_level}。你的回复不可以出现我的个人数据！"
+                f"请你根据我的身体状况给出健康饮食建议。"
             )
         else:
-            prompt = base_prompt + "\n请给出健康饮食建议。"
+            prompt = base_prompt + "\n请你给出健康饮食建议。"
         return prompt
 
     def upload_to_cos(self, file_path):

@@ -17,9 +17,9 @@ class HealthService:
         # 正则表达式提取总热量
         total_calories = self._extract_total_calories(content)
         logger.info(f"提取到的总热量为: {total_calories}")
-        if total_calories == 0.0:
-            logger.error(f"[HealthService] 未提取到总热量，原文为：[{content}]")
-            return None
+        # if total_calories == 0.0:
+        #     logger.error(f"[HealthService] 未提取到总热量，原文为：[{content}]")
+        #     return None
 
         # 根据食物和热量保存食物记录
         food_record_id = self._save_food_record_in_db(wx_id, nickname, total_calories, content, img_path)
@@ -66,9 +66,14 @@ class HealthService:
         logger.info(f"保存食物记录到 food_record 表，food_record_id: {food_record_id}")
 
         # 提取食物信息并保存到 food 表
+        calories = 0.0
         for food_item in food_items:
             self.food_dao.insert_food(food_item['food_name'], food_item['calories'], food_record_id)
+            calories += food_item['calories']
         logger.info(f"保存{len(food_items)}个食物记录到 food 表")
+
+        if total_calories == 0.0:
+            self.food_record_dao.update_total_calories(food_record_id, calories)
 
         return food_record_id
 
