@@ -605,18 +605,17 @@ class food_calorie(Plugin):
 
     def get_help_text(self, **kwargs):  # 此命令不仅在内部调用，还接受外部调用
         help_text = (
-            "1. 发送\"识别热量\"并引用一张图片即可识别图片中食物的热量\n\n"
-            "2. 发送\"识别热量\"可以识别最近的一张图片中食物的热量（必须是最近的消息且消息是图片）\n\n"
-            "3. 发送\"设置个人信息 身高：170cm，体重：77kg，性别：男，年龄：21岁，活动水平：轻度活动\"记录个人信息\n\n"
-            "4. 发送\"记录运动 跑步 消耗150千卡\"可以记录运动信息\n\n"
-            "5. 发送\"今日卡路里\\今日热量\"查看今日饮食记录、运动记录和热量统计\n\n"
-            "6. 发送\"开启新会话\"可以重新进入一个新会话\n\n"
+            "1. 发送一张图片即可识别图片中食物的热量\n\n"
+            "2. 发送\"设置个人信息 身高：170cm，体重：66kg，性别：男，年龄：21岁，活动水平：轻度活动\"记录个人信息\n\n"
+            "3. 发送\"记录运动 跑步 消耗150千卡\"可以记录运动信息\n\n"
+            "4. 发送\"今日卡路里\\今日热量\"查看今日饮食记录、运动记录和热量统计\n\n"
+            "5. 发送\"开启新会话\"可以重新进入一个新会话\n\n"
             "活动水平有以下五种：\n"
             "久坐不动（几乎不运动)\n"
-            "轻度活动（轻度运动或运动1-3天/周）\n"
-            "中度活动（中等强度运动或运动3-5天/周）\n"
-            "高度活动（高强度运动或运动6-7天/周）\n"
-            "极度活动（极高强度运动，体力劳动者）"
+            "轻度活动（运动1-3天/周）\n"
+            "中度活动（运动3-5天/周）\n"
+            "高度活动（运动6-7天/周）\n"
+            "极度活动（体力劳动者）"
         )
         return help_text
 
@@ -653,7 +652,7 @@ class food_calorie(Plugin):
         """上传文件到 COS 并返回可访问的 URL"""
         try:
             if not self.cos_client:
-                logger.error("[Sum4all] COS 客户端未初始化")
+                logger.error("[food_calorie] COS 客户端未初始化")
                 return None
 
             # 生成唯一的文件名
@@ -683,10 +682,11 @@ class food_calorie(Plugin):
 
             return url
         except Exception as e:
-            logger.error(f"[Sum4all] 上传文件到 COS 失败: {str(e)}")
+            logger.error(f"[food_calorie] 上传文件到 COS 失败: {str(e)}")
             return None
 
     def _handle_recognition_image(self, e_context):
+        """处理直接发送的图片消息，进行食物热量识别"""
         context = e_context["context"]
         msg = context["msg"]
 
@@ -747,10 +747,10 @@ class food_calorie(Plugin):
                 e_context["context"].kwargs = {}
             e_context["context"].kwargs.update({
                 "image_url": url,  # image_url_local,  #result.image,
-                "image_recognition": True,
-                "file_path": file_path,
-                "msg_type": msg_type,
-                "img_path": image_url_local,
+                "image_recognition": True, # 标记为图片识别
+                "file_path": file_path,  # 本地文件路径
+                "msg_type": msg_type,  # 消息类型
+                "img_path": image_url_local,  # 本地图片URL
             })
             e_context.action = EventAction.BREAK
 
