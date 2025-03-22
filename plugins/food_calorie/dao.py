@@ -253,6 +253,33 @@ class UserDAO:
                 conn.close()
         return rowcount > 0
 
+    def get_user_by_user_id(self, user_id: int) -> User:
+        """
+        根据user_id获取用户记录；若存在则返回User对象，否则返回None
+        """
+        conn = self.db_manager.get_conn()
+        row = None
+        try:
+            cur = conn.cursor()
+
+            sql = """
+                        SELECT user_id, wx_id, nickname, height, weight, gender, age, activity_level
+                        FROM user
+                        WHERE user_id = ?
+                    """
+            cur.execute(sql, (user_id,))
+            row = cur.fetchone()
+
+            conn.close()
+        except Exception as e:
+            logger.error(f"[UserDAO] 获取用户失败: {e}")
+            if 'conn' in locals():
+                conn.rollback()
+                conn.close()
+
+        # 使用Model的from_row构造User对象
+        return User.from_row(row) if row else None
+
 
 class ExerciseDAO:
     def __init__(self):

@@ -67,6 +67,13 @@ class HealthService:
         if not nutrient_ratios:
             logger.error(f"[HealthService] 未提取到营养成分，原文为[{content}]")
             return None
+        carbohydrate = nutrient_ratios['carbohydrate']
+        protein = nutrient_ratios['protein']
+        lipid = nutrient_ratios['lipid']
+        rate_sum = carbohydrate + protein + lipid
+        if not (self.check_rate(carbohydrate) and self.check_rate(protein) and self.check_rate(lipid)) or rate_sum != 100.0:
+            logger.error(f"[HealthService] 提取到的营养成分比例不合法，原文为[{content}]")
+            return None
 
 
         # 保存食物记录到 food_record 表
@@ -421,3 +428,68 @@ class HealthService:
 
     def get_exercise_info(self, exercise_id):
         return self.exercise_dao.get_exercise_by_id(exercise_id)
+
+    def check_rate(self, num):
+        if num < 0 or num > 100:
+            return False
+        return True
+
+    def check_energy(self, food_record_id):
+        list = []
+        carbohydrate = "碳水化合物摄入比例"
+        protein = "蛋白质摄入比例"
+        lipid = "脂肪摄入比例"
+        food_record = self.food_record_dao.get_record_by_id(food_record_id)
+        if food_record.carbohydrate > 65.0:
+            carbohydrate += "高于推荐值"
+            list.append(carbohydrate)
+        elif food_record.carbohydrate < 50.0:
+            carbohydrate += "低于推荐值"
+            list.append(carbohydrate)
+
+        if food_record.protein > 15.0:
+            protein += "高于推荐值"
+            list.append(protein)
+        elif food_record.protein < 10.0:
+            protein += "低于推荐值"
+            list.append(protein)
+
+        if food_record.lipid > 30.0:
+            lipid += "高于推荐值"
+            list.append(lipid)
+        elif food_record.lipid < 20.0:
+            lipid += "低于推荐值"
+            list.append(lipid)
+
+        reply = ""
+        if len(list) != 0:
+            reply = ",".join(list)
+
+        if reply != "":
+            reply = "温馨提示：您的" + reply + "。\n\n《中国居民膳食指南（2022）》推荐合适的能量摄入比例为：碳水化合物占总能量的50%~65%，蛋白质占总能量的10%~15%，脂肪占总能量的20%~30%\n\n"
+
+        # 获取当天的饮食记录
+        food_records = self.food_record_dao.list_records_by_user(food_record.user_id,
+                                                                 date_str=datetime.now().strftime(
+                                                                     "%Y-%m-%d %H:%M:%S"))
+        total_calories = 0
+        if food_records:
+            for record in food_records:
+                foods = self.food_dao.list_foods_by_record(record.food_record_id)
+                record_total = 0  # 总摄入热量
+                for food in foods:
+                    record_total += food.calories
+                total_calories += record_total
+
+        user = self.user_dao.get_user_by_user_id(food_record.user_id)
+
+        # 获取用户的基础代谢率(BMR)和每日建议摄入热量
+        bmr = self._calculate_bmr(user)
+        recommended_calories = bmr * self._activity_level_factor(user.activity_level)
+
+        if recommended_calories != 0 and total_calories > recommended_calories:
+            reply += f"请注意，您的每日推荐摄入热量为{recommended_calories:.1f}千卡，今日已摄入{total_calories:.1f}千卡，已超过推荐摄入值。\n"
+        elif recommended_calories == 0.0 and total_calories > 2200.0:
+            reply += f"请注意，您的每日推荐摄入热量为2200千卡，今日已摄入{total_calories:.1f}千卡，已超过推荐摄入值。（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）\n"
+
+        return reply

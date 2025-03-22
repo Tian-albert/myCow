@@ -156,10 +156,12 @@ class food_calorie(Plugin):
             msg = context["msg"]
             user_id = msg.from_user_id
             nickname = msg.from_user_nickname
-            self.health_service.save_food_record(wx_id=user_id, content=reply_content, nickname=nickname, img_path=img_path)
+            food_record_id = self.health_service.save_food_record(wx_id=user_id, content=reply_content, nickname=nickname, img_path=img_path)
             logger.info(f"[food_calorie] 所有食物记录保存完成")
+            return food_record_id
         except Exception as e:
             logger.error(f"[food_calorie] 更新食物记录时发生错误: {e}")
+            return None
 
     def handle_user_info(self, e_context: EventContext):
         """处理命令：保存用户信息"""
@@ -601,7 +603,8 @@ class food_calorie(Plugin):
             msg_type = context.kwargs.get("msg_type")
             img_path = context.kwargs.get("img_path")
             if img_path and file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
-                self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"), img_path=img_path)
+                food_record_id = self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"), img_path=img_path)
+                e_context["reply"].content = e_context["reply"].content + self.health_service.check_energy(food_record_id)
 
     def get_help_text(self, **kwargs):  # 此命令不仅在内部调用，还接受外部调用
         help_text = (
@@ -630,22 +633,21 @@ class food_calorie(Plugin):
         prompt = ""
         user_info = self.health_service.get_user_info(wx_id=wx_id)
         # 构建提示词
-        base_prompt = "这是我当前的饮食，请你分别列出每种食物的热量（单位：千卡）。\n"
+        base_prompt = "识别食物的热量（单位：千卡）和成分。\n"
         if user_info and user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
             height = user_info.height
             weight = user_info.weight
             gender = "男" if user_info.gender == 1 else "女"
-            activity_level = user_info.activity_level
+            # activity_level = user_info.activity_level
             age = user_info.age
             bmi = weight / ((height / 100) ** 2)
 
             prompt = (
                 f"{base_prompt}\n"
-                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁，活动水平是{activity_level}。你的回复不可以出现我的个人数据！"
-                f"请你根据我的身体状况给出健康饮食建议。"
+                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁。你的回复不可以出现我的个人数据！"
             )
-        else:
-            prompt = base_prompt + "\n请你给出健康饮食建议。"
+        # else:
+        #     prompt = base_prompt + "\n请你给出健康饮食建议。"
         return prompt
 
     def upload_to_cos(self, file_path):
