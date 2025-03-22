@@ -102,6 +102,12 @@ class DBManager:
             columns = [column[1] for column in cursor.fetchall()]
             if 'img_path' not in columns:
                 cursor.execute('ALTER TABLE food_record ADD COLUMN img_path TEXT')
+            if 'carbohydrate' not in columns:
+                cursor.execute('ALTER TABLE food_record ADD COLUMN carbohydrate REAL DEFAULT 0.0')
+            if 'protein' not in columns:
+                cursor.execute('ALTER TABLE food_record ADD COLUMN protein REAL DEFAULT 0.0')
+            if 'lipid' not in columns:
+                cursor.execute('ALTER TABLE food_record ADD COLUMN lipid REAL DEFAULT 0.0')
 
             conn.commit()
             conn.close()
@@ -510,7 +516,8 @@ class FoodRecordDAO:
     def __init__(self):
         self.db_manager = DBManager()
 
-    def insert_record(self, user_id: int, img_path: str, total_calories: float = 0.0,
+    def insert_record(self, user_id: int, img_path: str, total_calories: float = 0.0, carbohydrate: float = 0.0, protein: float = 0.0,
+                      lipid: float = 0.0,
                       record_time: str = None) -> int:
         """
         向 food_record 表插入一条记录，并返回新插入记录的 food_record_id
@@ -518,6 +525,9 @@ class FoodRecordDAO:
         :param img_path:
         :param total_calories: 当时记录的总热量
         :param record_time: 如果为None，可用默认CURRENT_TIMESTAMP
+        :param carbohydrate:碳水化合物占比
+        :param protein:蛋白质占比
+        :param lipid:脂肪占比
         """
         conn = self.db_manager.get_conn()
         new_record_id = None
@@ -527,16 +537,16 @@ class FoodRecordDAO:
             if record_time is None:
                 # 直接在 SQL 里使用CURRENT_TIMESTAMP
                 sql = """
-                    INSERT INTO food_record (user_id, total_calories, img_path)
-                    VALUES (?, ?, ?)
+                    INSERT INTO food_record (user_id, total_calories, img_path, carbohydrate, protein, lipid)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """
-                cur.execute(sql, (user_id, total_calories, img_path))
+                cur.execute(sql, (user_id, total_calories, img_path, carbohydrate, protein, lipid))
             else:
                 sql = """
-                    INSERT INTO food_record (user_id, total_calories, record_time, img_path)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO food_record (user_id, total_calories, record_time, img_path, carbohydrate, protein, lipid)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 """
-                cur.execute(sql, (user_id, total_calories, record_time, img_path))
+                cur.execute(sql, (user_id, total_calories, record_time, img_path, carbohydrate, protein, lipid))
 
             new_record_id = cur.lastrowid
 
@@ -585,7 +595,7 @@ class FoodRecordDAO:
             cur = conn.cursor()
 
             sql = """
-                SELECT food_record_id, user_id, total_calories, record_time, img_path
+                SELECT food_record_id, user_id, total_calories, record_time, img_path, carbohydrate, protein, lipid
                 FROM food_record
                 WHERE food_record_id = ?
             """
@@ -612,7 +622,7 @@ class FoodRecordDAO:
 
             if date_str:
                 sql = """
-                    SELECT food_record_id, user_id, total_calories, record_time, img_path
+                    SELECT food_record_id, user_id, total_calories, record_time, img_path, carbohydrate, protein, lipid
                     FROM food_record
                     WHERE user_id = ?
                       AND DATE(record_time) = DATE(?)
@@ -621,7 +631,7 @@ class FoodRecordDAO:
                 cur.execute(sql, (user_id, date_str))
             else:
                 sql = """
-                    SELECT food_record_id, user_id, total_calories, record_time, img_path
+                    SELECT food_record_id, user_id, total_calories, record_time, img_path, carbohydrate, protein, lipid
                     FROM food_record
                     WHERE user_id = ?
                     ORDER BY record_time DESC

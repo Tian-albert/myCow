@@ -64,7 +64,10 @@ class FoodRecord:
                  user_id: int = None,
                  total_calories: float = 0.0,
                  record_time: str = None,
-                 img_path: str = None):
+                 img_path: str = None,
+                 carbohydrate: float = 0.0,
+                 protein: float = 0.0,
+                 lipid: float = 0.0,):
         """
         :param food_record_id: 主键，自增
         :param user_id: 关联 user 表的ID
@@ -77,10 +80,14 @@ class FoodRecord:
         self.total_calories = total_calories
         self.record_time = record_time
         self.img_path = img_path
+        self.carbohydrate = carbohydrate
+        self.protein = protein
+        self.lipid = lipid
 
     def __repr__(self):
         return (f"<FoodRecord food_record_id={self.food_record_id}, user_id={self.user_id}, "
-                f"total_calories={self.total_calories}, record_time={self.record_time}, img_path={self.img_path}>")
+                f"total_calories={self.total_calories}, record_time={self.record_time}, img_path={self.img_path}>, "
+                f"carbohydrate={self.carbohydrate}, protein={self.protein}, lipid={self.lipid}>")
 
     @classmethod
     def from_row(cls, row: tuple):
@@ -95,7 +102,10 @@ class FoodRecord:
             user_id=row[1],
             total_calories=row[2],
             record_time=row[3],
-            img_path=row[4]
+            img_path=row[4],
+            carbohydrate=row[5],
+            protein=row[6],
+            lipid=row[7]
         )
 
 

@@ -56,13 +56,21 @@ class HealthService:
                 logger.error(f"[HealthService] 创建用户{wx_id}失败")
                 return None
 
+        # 提取食物信息
         food_items = self._extract_food_items(content)
         if not food_items:
             logger.error(f"[HealthService] 未提取到食物记录，原文为[{content}]")
             return None
 
+        # 提取营养成分信息
+        nutrient_ratios = self._extract_nutrient_ratios(content)
+        if not nutrient_ratios:
+            logger.error(f"[HealthService] 未提取到营养成分，原文为[{content}]")
+            return None
+
+
         # 保存食物记录到 food_record 表
-        food_record_id = self.food_record_dao.insert_record(user_id=user.user_id, img_path=img_path, total_calories=total_calories)
+        food_record_id = self.food_record_dao.insert_record(user_id=user.user_id, img_path=img_path, total_calories=total_calories, carbohydrate=nutrient_ratios['carbohydrate'], protein=nutrient_ratios['protein'], lipid=nutrient_ratios['lipid'])
         logger.info(f"保存食物记录到 food_record 表，food_record_id: {food_record_id}")
 
         # 提取食物信息并保存到 food 表
@@ -76,6 +84,26 @@ class HealthService:
             self.food_record_dao.update_total_calories(food_record_id, calories)
 
         return food_record_id
+
+    def _extract_nutrient_ratios(self, content):
+        """
+        提取营养成分占比（碳水化合物、蛋白质、脂类）
+        使用正则表达式匹配格式：
+            "碳水化合物占比约XX%，蛋白质占比约XX%，脂类占比约XX%"
+        支持整数和小数形式
+        """
+        nutrient_ratios = {}
+
+        # 优化后的正则表达式模式，支持小数
+        pattern = r'碳水化合物占比约(\d+(\.\d+)?)%，蛋白质占比约(\d+(\.\d+)?)%，脂类占比约(\d+(\.\d+)?)%'
+        match = re.search(pattern, content)
+
+        if match:
+            nutrient_ratios['carbohydrate'] = float(match.group(1))
+            nutrient_ratios['protein'] = float(match.group(3))
+            nutrient_ratios['lipid'] = float(match.group(5))
+
+        return nutrient_ratios
 
     def _extract_food_items(self, content):
         """
