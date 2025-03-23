@@ -717,7 +717,7 @@ class food_calorie(Plugin):
             # 等待获取图片链接
             result = voice_manager.get_result(timeout=15)
             if not result or not result.image:
-                raise Exception("获取图片链接超时")
+                raise Exception("获取图片链接失败")
 
             # 保存文件
             file_path = None
@@ -760,8 +760,8 @@ class food_calorie(Plugin):
             e_context.action = EventAction.BREAK
 
         except Exception as e:
-            logger.error(f"[food_calorie] Save command failed: {e}")
-            reply = Reply(ReplyType.TEXT, f"处理失败: {str(e)}")
+            logger.error(f"[food_calorie] 识别图片失败: {e}")
+            reply = Reply(ReplyType.TEXT, f"图片识别暂时不可用，请稍后重试。")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
