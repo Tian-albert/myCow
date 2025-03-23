@@ -646,8 +646,8 @@ class food_calorie(Plugin):
                 f"{base_prompt}\n"
                 f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁。你的回复不可以出现我的个人数据！"
             )
-        # else:
-        #     prompt = base_prompt + "\n请你给出健康饮食建议。"
+        else:
+            prompt = base_prompt
         return prompt
 
     def upload_to_cos(self, file_path):
