@@ -123,7 +123,7 @@ class HealthService:
         千卡	            匹配 "千卡" 这个单位（不会被捕获
         """
         food_items = []
-        food_pattern = r'([^：:\n]+)[：:](?:约)?\s*(\d+(\.\d+)?)\s*千卡'
+        food_pattern = r'([^.：:\n]+)\s*[：:]\s*(?:约)?\s*(\d+(\.\d+)?)\s*千卡'
         matches = re.finditer(food_pattern, content)
         for match in matches:
             food_name = match.group(1).strip()
