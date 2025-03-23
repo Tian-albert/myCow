@@ -157,7 +157,10 @@ class food_calorie(Plugin):
             user_id = msg.from_user_id
             nickname = msg.from_user_nickname
             food_record_id = self.health_service.save_food_record(wx_id=user_id, content=reply_content, nickname=nickname, img_path=img_path)
-            logger.info(f"[food_calorie] 所有食物记录保存完成")
+            if food_record_id:
+                logger.info(f"[food_calorie] 所有食物记录保存完成")
+            else:
+                logger.error(f"[food_calorie] 食物记录保存失败")
             return food_record_id
         except Exception as e:
             logger.error(f"[food_calorie] 更新食物记录时发生错误: {e}")
@@ -601,7 +604,7 @@ class food_calorie(Plugin):
         if context.get("image_recognition"):
             file_path = context.kwargs.get("file_path")
             msg_type = context.kwargs.get("msg_type")
-            img_path = context.kwargs.get("img_path")
+            img_path = context.kwargs.get("image_url")
             if img_path and file_path and reply and (reply.type == ReplyType.TEXT or reply.type == ReplyType.ERROR):
                 food_record_id = self.update_food_record(reply.content, context, is_emoji=(msg_type == "emoji"), img_path=img_path)
                 e_context["reply"].content = e_context["reply"].content + self.health_service.check_energy(food_record_id)

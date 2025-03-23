@@ -440,6 +440,8 @@ class HealthService:
         protein = "蛋白质摄入比例"
         lipid = "脂肪摄入比例"
         food_record = self.food_record_dao.get_record_by_id(food_record_id)
+        if food_record is None:
+            return ""
         if food_record.carbohydrate > 65.0:
             carbohydrate += "高于推荐值"
             list.append(carbohydrate)
