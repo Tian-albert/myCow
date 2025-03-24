@@ -499,7 +499,7 @@ class HealthService:
         reply = ""
         literature = "\n《中国居民膳食指南（2022）》推荐合适的能量摄入比例为：碳水化合物占总能量的50%~65%，蛋白质占总能量的10%~15%，脂肪占总能量的20%~30%"
         if recommended_calories != 0 and total_calories > recommended_calories:
-            if lipid_rate > 0.3:
+            if lipid_rate > 30:
                 reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。其中脂肪成分摄入{total_lipid}千卡，占比{lipid_rate:.1f}%，超过了指南中脂肪占比限制。请适当调整自己的饮食\n"
                 return reply + literature
             elif total_lipid > 500.0:
@@ -509,7 +509,7 @@ class HealthService:
                 reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。请适当调整自己的饮食\n"
                 return reply
         elif recommended_calories == 0.0 and total_calories > 2200.0:
-            if lipid_rate > 0.3:
+            if lipid_rate > 30:
                 reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限2200千卡（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）。其中脂肪成分摄入{total_lipid}千卡，占比{lipid_rate:.1f}%，超过了指南中脂肪占比限制。请适当调整自己的饮食\n"
                 return reply + literature
             elif total_lipid > 500.0:
