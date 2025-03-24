@@ -513,7 +513,7 @@ class HealthService:
                 reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限2200千卡（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）。其中脂肪成分摄入{total_lipid}千卡，占比{lipid_rate:.1f}%，超过了指南中脂肪占比限制。请适当调整自己的饮食\n"
                 return reply + literature
             elif total_lipid > 500.0:
-                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。其中脂肪成分摄入{total_lipid}千卡，每日脂肪总热量不能超过500千卡。请适当调整自己的饮食\n"
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限2200千卡（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）。其中脂肪成分摄入{total_lipid}千卡，每日脂肪总热量不能超过500千卡。请适当调整自己的饮食\n"
                 return reply
             else:
                 reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限2200千卡（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）。请适当调整自己的饮食\n"
