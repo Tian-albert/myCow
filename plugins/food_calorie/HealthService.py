@@ -435,52 +435,56 @@ class HealthService:
         return True
 
     def check_energy(self, food_record_id):
-        list = []
-        carbohydrate = "碳水化合物摄入比例"
-        protein = "蛋白质摄入比例"
-        lipid = "脂肪摄入比例"
         food_record = self.food_record_dao.get_record_by_id(food_record_id)
-        if food_record is None:
-            return ""
-        if food_record.carbohydrate > 65.0:
-            carbohydrate += "高于推荐值"
-            list.append(carbohydrate)
-        elif food_record.carbohydrate < 50.0:
-            carbohydrate += "低于推荐值"
-            list.append(carbohydrate)
 
-        if food_record.protein > 15.0:
-            protein += "高于推荐值"
-            list.append(protein)
-        elif food_record.protein < 10.0:
-            protein += "低于推荐值"
-            list.append(protein)
+        # list = []
+        # carbohydrate = "碳水化合物摄入比例"
+        # protein = "蛋白质摄入比例"
+        # lipid = "脂肪摄入比例"
 
-        if food_record.lipid > 30.0:
-            lipid += "高于推荐值"
-            list.append(lipid)
-        elif food_record.lipid < 20.0:
-            lipid += "低于推荐值"
-            list.append(lipid)
-
-        reply = ""
-        if len(list) != 0:
-            reply = ",".join(list)
-
-        if reply != "":
-            reply = "温馨提示：您的" + reply + "。\n\n《中国居民膳食指南（2022）》推荐合适的能量摄入比例为：碳水化合物占总能量的50%~65%，蛋白质占总能量的10%~15%，脂肪占总能量的20%~30%\n\n"
+        # if food_record is None:
+        #     return ""
+        # if food_record.carbohydrate > 65.0:
+        #     carbohydrate += "高于推荐值"
+        #     list.append(carbohydrate)
+        # elif food_record.carbohydrate < 50.0:
+        #     carbohydrate += "低于推荐值"
+        #     list.append(carbohydrate)
+        #
+        # if food_record.protein > 15.0:
+        #     protein += "高于推荐值"
+        #     list.append(protein)
+        # elif food_record.protein < 10.0:
+        #     protein += "低于推荐值"
+        #     list.append(protein)
+        #
+        # if food_record.lipid > 30.0:
+        #     lipid += "高于推荐值"
+        #     list.append(lipid)
+        # elif food_record.lipid < 20.0:
+        #     lipid += "低于推荐值"
+        #     list.append(lipid)
+        #
+        # reply = ""
+        # if len(list) != 0:
+        #     reply = ",".join(list)
+        #
+        # if reply != "":
+        #     reply = "温馨提示：您的" + reply + "。\n\n《中国居民膳食指南（2022）》推荐合适的能量摄入比例为：碳水化合物占总能量的50%~65%，蛋白质占总能量的10%~15%，脂肪占总能量的20%~30%\n\n"
 
         # 获取当天的饮食记录
         food_records = self.food_record_dao.list_records_by_user(food_record.user_id,
                                                                  date_str=datetime.now().strftime(
                                                                      "%Y-%m-%d %H:%M:%S"))
-        total_calories = 0
+        total_calories = 0  # 当天摄入的总热量
+        total_lipid = 0.0  # 当天摄入的总脂肪热量
         if food_records:
             for record in food_records:
                 foods = self.food_dao.list_foods_by_record(record.food_record_id)
-                record_total = 0  # 总摄入热量
+                record_total = 0  # 这一顿总摄入热量
                 for food in foods:
                     record_total += food.calories
+                total_lipid += record_total * (record.lipid / 100)
                 total_calories += record_total
 
         user = self.user_dao.get_user_by_user_id(food_record.user_id)
@@ -489,9 +493,33 @@ class HealthService:
         bmr = self._calculate_bmr(user)
         recommended_calories = bmr * self._activity_level_factor(user.activity_level)
 
+        # 总脂肪占比
+        lipid_rate = total_lipid / total_calories
+
+        reply = ""
+        literature = "\n《中国居民膳食指南（2022）》推荐合适的能量摄入比例为：碳水化合物占总能量的50%~65%，蛋白质占总能量的10%~15%，脂肪占总能量的20%~30%"
         if recommended_calories != 0 and total_calories > recommended_calories:
-            reply += f"请注意，您的每日推荐摄入热量为{recommended_calories:.1f}千卡，今日已摄入{total_calories:.1f}千卡，已超过推荐摄入值。\n"
+            if lipid_rate > 0.3:
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。其中脂肪成分摄入{total_lipid}千卡，占比{lipid_rate:.1f}%，超过了指南中脂肪占比限制。请适当调整自己的饮食\n"
+                return reply + literature
+            elif total_lipid > 500.0:
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。其中脂肪成分摄入{total_lipid}千卡，每日脂肪总热量不能超过500千卡。请适当调整自己的饮食\n"
+                return reply
+            else:
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。请适当调整自己的饮食\n"
+                return reply
         elif recommended_calories == 0.0 and total_calories > 2200.0:
-            reply += f"请注意，您的每日推荐摄入热量为2200千卡，今日已摄入{total_calories:.1f}千卡，已超过推荐摄入值。（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）\n"
+            if lipid_rate > 0.3:
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限2200千卡（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）。其中脂肪成分摄入{total_lipid}千卡，占比{lipid_rate:.1f}%，超过了指南中脂肪占比限制。请适当调整自己的饮食\n"
+                return reply + literature
+            elif total_lipid > 500.0:
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限{recommended_calories:.1f}千卡。其中脂肪成分摄入{total_lipid}千卡，每日脂肪总热量不能超过500千卡。请适当调整自己的饮食\n"
+                return reply
+            else:
+                reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，已超每日热量上限2200千卡（由于未设置身体数据，假定您的每日推荐摄入热量为2200千卡）。请适当调整自己的饮食\n"
+                return reply
+        elif total_lipid > 500.0:
+            reply += f"\n\n温馨提示：您今日膳食总热量{total_calories:.1f}千卡，其中脂肪成分摄入{total_lipid}千卡，每日脂肪总热量不能超过500千卡。请适当调整自己的饮食\n"
+            return reply
 
         return reply

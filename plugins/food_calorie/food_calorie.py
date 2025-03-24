@@ -636,7 +636,7 @@ class food_calorie(Plugin):
         prompt = ""
         user_info = self.health_service.get_user_info(wx_id=wx_id)
         # 构建提示词
-        base_prompt = "识别食物的热量（单位：千卡）和成分。\n"
+        base_prompt = "识别食物的热量（单位：千卡）和营养成分。\n"
         if user_info and user_info.height and user_info.weight and user_info.gender and user_info.activity_level and user_info.gender != 0 and user_info.age:
             height = user_info.height
             weight = user_info.weight
@@ -647,7 +647,7 @@ class food_calorie(Plugin):
 
             prompt = (
                 f"{base_prompt}\n"
-                f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁。你的回复不可以出现我的个人数据！"
+                # f"请注意：我的身高{height}cm，体重{weight}kg，BMI为{bmi:.1f}，性别是{gender}，年龄为：{age}岁。你的回复不可以出现我的个人数据！"
             )
         else:
             prompt = base_prompt
