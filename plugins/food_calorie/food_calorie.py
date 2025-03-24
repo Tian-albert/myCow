@@ -596,7 +596,7 @@ class food_calorie(Plugin):
         context = e_context["context"]
 
         # 去除所有的 * #
-        e_context["reply"].content = e_context["reply"].content.replace("*", "").replace("#", "")
+        e_context["reply"].content = e_context["reply"].content.replace("*", "").replace("#", "").replace("`", "").replace("plaintext", "")
 
         reply = e_context["reply"]
 

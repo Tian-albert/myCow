@@ -494,7 +494,7 @@ class HealthService:
         recommended_calories = bmr * self._activity_level_factor(user.activity_level)
 
         # 总脂肪占比
-        lipid_rate = total_lipid / total_calories
+        lipid_rate = total_lipid / total_calories * 100
 
         reply = ""
         literature = "\n《中国居民膳食指南（2022）》推荐合适的能量摄入比例为：碳水化合物占总能量的50%~65%，蛋白质占总能量的10%~15%，脂肪占总能量的20%~30%"
