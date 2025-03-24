@@ -436,14 +436,13 @@ class HealthService:
 
     def check_energy(self, food_record_id):
         food_record = self.food_record_dao.get_record_by_id(food_record_id)
-
+        if food_record is None:
+            return ""
         # list = []
         # carbohydrate = "碳水化合物摄入比例"
         # protein = "蛋白质摄入比例"
         # lipid = "脂肪摄入比例"
 
-        # if food_record is None:
-        #     return ""
         # if food_record.carbohydrate > 65.0:
         #     carbohydrate += "高于推荐值"
         #     list.append(carbohydrate)
@@ -486,6 +485,8 @@ class HealthService:
                     record_total += food.calories
                 total_lipid += record_total * (record.lipid / 100)
                 total_calories += record_total
+        else:
+            return ""
 
         user = self.user_dao.get_user_by_user_id(food_record.user_id)
 
