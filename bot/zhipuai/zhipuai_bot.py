@@ -146,7 +146,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                 json=request_params
             )
             request_id = response.json()["data"]["id"]
-            logger.debug(f"[ZHIPUAI] Request ID: {request_id}")
+            logger.info(f"[ZHIPUAI] Request ID: {request_id}")
 
             # 获取对话结果
             response = self._http_request(
