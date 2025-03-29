@@ -195,6 +195,9 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
         """处理回复"""
         if context.type == ContextType.TEXT:
             logger.info("[ZHIPUAI] query={}".format(query))
+            if not query:
+                reply = Reply(ReplyType.TEXT, "您好，请问有什么能帮到您？")
+                return reply
             
             session_id = context["session_id"]
             reply = None
