@@ -616,7 +616,7 @@ class WechatMessage(ChatMessage):
     def save_contact(self):
 
         json.dump(iPadWx.shared_wx_contact_list,open("contact.json",'w',encoding='utf-8'), indent=4)
-        logger.info(f"保存联系人!{iPadWx.shared_wx_contact_list}")
+        logger.debug(f"保存联系人!{iPadWx.shared_wx_contact_list}")
 
     def save_single_contact(self,user_id):
         result = self.bot.get_contact_info(user_id)
