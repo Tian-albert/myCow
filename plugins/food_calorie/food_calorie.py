@@ -434,6 +434,7 @@ class food_calorie(Plugin):
                 response = requests.get(result.image)
                 if response.status_code == 200:
                     file_path = self.save_image(response.content, chat_id, uploader_nickname, result.image)
+                response.close()
 
             if not file_path:
                 raise Exception("保存文件失败")
@@ -548,6 +549,7 @@ class food_calorie(Plugin):
                 response = requests.get(result.image)
                 if response.status_code == 200:
                     file_path = self.save_image(response.content, chat_id, uploader_nickname, result.image)
+                response.close()
 
             if not file_path:
                 raise Exception("保存文件失败")
@@ -727,6 +729,7 @@ class food_calorie(Plugin):
                 response = requests.get(result.image)
                 if response.status_code == 200:
                     file_path = self.save_image(response.content, chat_id, uploader_nickname, result.image)
+                response.close()
 
             if not file_path:
                 raise Exception("保存文件失败")
