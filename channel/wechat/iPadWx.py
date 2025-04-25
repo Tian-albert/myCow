@@ -310,24 +310,33 @@ class iPadWx:
 
 
     def call_api(self, method, endpoint, data=None):
+        """
+               通过 requests.Session 发送 HTTP 请求，
+               每次都显式关闭连接，并在请求头中添加 Connection: close。
+        """
         url = f"{self.base_url}/{endpoint}"
         self.headers = {
             "we-token": self.token,
             "we-auth": self.auth,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Connection": "close",  # 禁用长连接
         }
         try:
-            if method == "GET":
-                response = requests.get(url, headers=self.headers, params=data,timeout=100)
-            elif method == "POST":
-                response = requests.post(url, headers=self.headers, json=data,timeout=100)
-            else:
-                return None
+            # 使用 Session + with 块，确保请求结束后底层 socket 关闭
+            with requests.Session() as session:
+                if method.upper() == "GET":
+                    response = session.get(url, headers=self.headers, params=data, timeout=100)
+                elif method.upper() == "POST":
+                    response = session.post(url, headers=self.headers, json=data, timeout=100)
+                else:
+                    logger.warning(f"Unsupported HTTP method: {method}")
+                    return None
+
             if response.status_code == 200:
                 #logger.debug(response.json())
                 return response.json()
             else:
-                logger.debug(response.json())
+                logger.info(response.json())
                 return None
         except Exception as e:
             logger.info("api 发送失败{0}".format(e))
